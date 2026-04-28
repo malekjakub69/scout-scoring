@@ -15,8 +15,8 @@ import { FormEvent, useState } from "react";
 export default function LoginPage() {
   const router = useRouter();
   const login = useLogin();
-  const [email, setEmail] = useState("admin@scout.test");
-  const [password, setPassword] = useState("Password123456!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
