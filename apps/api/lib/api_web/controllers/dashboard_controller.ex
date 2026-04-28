@@ -1,0 +1,103 @@
+defmodule ApiWeb.DashboardController do
+  use ApiWeb, :controller
+
+  alias Api.{Races, Scoring, AuditLog}
+
+  defp owner(conn), do: conn.assigns.organizer["id"]
+
+  def show(conn, %{"race_id" => rid}) do
+    with {:ok, race} <- Races.get_race(rid, owner(conn)),
+         {:ok, stations} <- Races.list_stations(rid, owner(conn)),
+         {:ok, patrols} <- Races.list_patrols(rid, owner(conn)),
+         {:ok, scores} <- Scoring.list_for_race(rid) do
+      by_patrol = Enum.group_by(scores, & &1["patrol"])
+      by_station = Enum.group_by(scores, & &1["station"])
+
+      patrols_rows =
+        Enum.map(patrols, fn p ->
+          entries = Map.get(by_patrol, p["id"], [])
+          total = sum_points(entries)
+
+          %{
+            id: p["id"],
+            start_number: p["start_number"],
+            name: p["name"],
+            category: p["category"],
+            stations_done: length(entries),
+            total_points: total,
+            last_activity: latest_ts(entries)
+          }
+        end)
+
+      stations_rows =
+        Enum.map(stations, fn s ->
+          entries = Map.get(by_station, s["id"], [])
+
+          %{
+            id: s["id"],
+            name: s["name"],
+            position: s["position"],
+            is_active: s["is_active"],
+            patrols_processed: length(entries),
+            pending: length(patrols) - length(entries)
+          }
+        end)
+
+      json(conn, %{
+        race: race,
+        patrols: patrols_rows,
+        stations: stations_rows
+      })
+    else
+      _ -> conn |> put_status(404) |> json(%{error: "not_found"})
+    end
+  end
+
+  def leaderboard(conn, %{"race_id" => rid}) do
+    with {:ok, _} <- Races.get_race(rid, owner(conn)),
+         {:ok, data} <- Scoring.leaderboard(rid) do
+      json(conn, %{data: data})
+    else
+      _ -> conn |> put_status(404) |> json(%{error: "not_found"})
+    end
+  end
+
+  def results(conn, %{"race_id" => rid}) do
+    with {:ok, race} <- Races.get_race(rid, owner(conn)),
+         {:ok, stations} <- Races.list_stations(rid, owner(conn)),
+         {:ok, patrols} <- Races.list_patrols(rid, owner(conn)),
+         {:ok, scores} <- Scoring.list_for_race(rid),
+         {:ok, leaderboard} <- Scoring.leaderboard(rid) do
+      json(conn, %{
+        race: race,
+        stations: stations,
+        patrols: patrols,
+        score_entries: scores,
+        leaderboard: leaderboard
+      })
+    else
+      _ -> conn |> put_status(404) |> json(%{error: "not_found"})
+    end
+  end
+
+  def audit(conn, %{"race_id" => rid}) do
+    with {:ok, _} <- Races.get_race(rid, owner(conn)),
+         {:ok, logs} <- AuditLog.list_for_race(rid) do
+      json(conn, %{data: logs})
+    else
+      _ -> conn |> put_status(404) |> json(%{error: "not_found"})
+    end
+  end
+
+  defp sum_points(entries) do
+    entries
+    |> Enum.flat_map(&(&1["scores"] || []))
+    |> Enum.map(&(Map.get(&1, "points") || 0))
+    |> Enum.sum()
+  end
+
+  defp latest_ts([]), do: nil
+
+  defp latest_ts(entries),
+    do: entries |> Enum.map(&(&1["updated_at"] || &1["created_at"])) |> Enum.max()
+end

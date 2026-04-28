@@ -1,0 +1,110 @@
+# scout-scoring
+
+Monorepo pro aplikaci Scout Scoring (viz `docs/spec.md`).
+
+```
+scout-scoring/
+├── apps/
+│   ├── api/       # Elixir + Phoenix REST API (this)
+│   └── web/       # Next.js frontend (TBD)
+└── docs/spec.md
+```
+
+## Dev setup
+
+Prerekvizita: Elixir 1.19+, Erlang/OTP 28+, SurrealDB 3.x CLI.
+
+1. **Spusť SurrealDB** (v samostatném terminálu):
+
+   ```
+   make db-local
+   ```
+
+   Data jsou v `/tmp/scout-surreal/`. HTTP API na `http://127.0.0.1:8000`, root/root.
+   Na produkci DB poběží jako samostatná instance (fly.io apod.) — nakonfiguruj
+   `SURREAL_URL`, `SURREAL_NS`, `SURREAL_DB`, `SURREAL_USER`, `SURREAL_PASS`.
+
+2. **Nainstaluj deps + aplikuj schéma** (jednorázově):
+
+   ```
+   make api-setup
+   make api-migrate
+   ```
+
+   Schéma je idempotentní (`DEFINE … IF NOT EXISTS`), migrace vytvoří namespace
+   `scout` + databázi `scoring`, pokud chybí.
+
+3. **Vytvoř prvního organizátora**:
+
+   ```
+   SEED_EMAIL=admin@scout.test SEED_PASS=testpass123 SEED_NAME="Admin" make api-seed
+   ```
+
+4. **Spusť API**:
+
+   ```
+   make api-server
+   ```
+
+   Běží na `http://127.0.0.1:4000`. `GET /api/health` vrací `{"status":"ok","db":"ok"}`.
+
+## Auth
+
+- **Organizátor:** JWT v `Authorization: Bearer <token>`. Získání: `POST /api/auth/login`.
+- **Stanoviště:** podepsaný krátkodobý token (Phoenix.Token + raw access token
+  bcrypt-hashed v DB). Vygeneruje se při `POST /api/races/:id/activate`. Poslat
+  v `Authorization: Bearer <token>` nebo `?token=…` pro QR landing.
+
+## Endpointy (přehled)
+
+| Metoda | Cesta | Scope |
+|---|---|---|
+| `POST` | `/api/auth/login` | public |
+| `GET` | `/api/auth/me` | organizer |
+| `POST` | `/api/auth/invite` | organizer |
+| `GET/POST` | `/api/races` | organizer |
+| `GET/PUT` | `/api/races/:id` | organizer |
+| `POST` | `/api/races/:id/activate` | organizer |
+| `POST` | `/api/races/:id/close` | organizer |
+| `GET/POST` | `/api/races/:race_id/categories` | organizer |
+| `GET/POST` | `/api/races/:race_id/patrols` | organizer |
+| `POST` | `/api/races/:race_id/patrols/bulk` | organizer |
+| `PUT/DELETE` | `/api/patrols/:id` | organizer |
+| `GET/POST` | `/api/races/:race_id/stations` | organizer |
+| `POST` | `/api/races/:race_id/stations/bulk` | organizer |
+| `POST` | `/api/races/:race_id/ai-import/extract` | organizer |
+| `POST` | `/api/races/:race_id/ai-import/refine` | organizer |
+| `PUT` | `/api/stations/:id` | organizer |
+| `POST` | `/api/stations/:id/deactivate` | organizer |
+| `GET` | `/api/races/:race_id/dashboard` | organizer |
+| `GET` | `/api/races/:race_id/leaderboard` | organizer |
+| `GET` | `/api/races/:race_id/results` | organizer |
+| `GET` | `/api/races/:race_id/audit` | organizer |
+| `GET` | `/api/station/me` | station |
+| `GET` | `/api/station/scores` | station |
+| `POST` | `/api/station/scores` | station |
+
+## AI import stanovišť
+
+Organizátor v UI klikne na **„AI import"** u stanovišť, nahraje PDF / TXT (max
+5 MB), AI vrátí draft stanovišť + seznam doplňujících otázek. Po jejich
+zodpovězení se spočítá finální seznam, který se uloží přes
+`/api/races/:race_id/stations/bulk`. Konverzace nemá žádný server-side state —
+uživatelské zavření dialogu znamená restart.
+
+Konfigurace:
+- `OPENAI_API_KEY` — povinné. Bez něj endpoint vrací 502.
+- `OPENAI_MODEL` — volitelné, default `gpt-5-mini`. Používá se Responses API
+  se structured outputs (`text.format = json_schema`, `strict: true`).
+- Při neplatném formátu odpovědi BE jednou retryne s chybovou nápovědou; po
+  druhém selhání vrací `422 ai_invalid_format`.
+
+## Známé vtípky SurrealDB 3.x
+
+- `/sql` endpoint nepodporuje parametry v těle → používáme `/rpc` (`method=query`).
+- Schemafull pole typu `option<T>` padá na `null` hodnotě přes RPC. Řešíme
+  helperem `Api.SurrealDB.build_set/1`, který nil hodnoty z query vypouští.
+- SurrealDB auto-coerce stringu tvaru `"table:id"` na record reference i pro
+  pole typované jako `string`. Řeší obalení `type::string($var)`.
+- `DEFINE FIELD OVERWRITE` je použité u `audit_log.payload` (flexible), aby
+  akceptovalo libovolný payload bez předdefinovaných sub-polí.

@@ -1,0 +1,136 @@
+"use client";
+
+import * as React from "react";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useCreateRace } from "@/lib/queries/races";
+import type { Race } from "@/lib/api/types";
+import { toast } from "sonner";
+import { FormEvent, useState } from "react";
+
+function stateBadge(state: Race["state"]) {
+  const map: Record<Race["state"], { label: string; variant: "secondary" | "default" | "muted" }> = {
+    draft: { label: "Rozpracováno", variant: "muted" },
+    active: { label: "Běží", variant: "default" },
+    closed: { label: "Uzavřeno", variant: "secondary" },
+  };
+  return map[state] ?? map.draft;
+}
+
+export function RaceSelector({
+  races,
+  current,
+  onPick,
+  onCreated,
+}: {
+  races: Race[];
+  current: Race | null;
+  onPick: (id: string) => void;
+  onCreated: (race: Race) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [date, setDate] = useState("");
+  const [location, setLocation] = useState("");
+  const createRace = useCreateRace();
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    try {
+      const race = await createRace.mutateAsync({ name, date: date || null, location: location || null });
+      onCreated(race);
+      setOpen(false);
+      setName("");
+      setDate("");
+      setLocation("");
+      toast.success("Závod založen.");
+    } catch {
+      toast.error("Založení se nezdařilo.");
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {races.length > 0 ? (
+        <Select value={current?.id ?? undefined} onValueChange={onPick}>
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="Vyber závod…" />
+          </SelectTrigger>
+          <SelectContent>
+            {races.map((r) => {
+              const s = stateBadge(r.state);
+              return (
+                <SelectItem key={r.id} value={r.id}>
+                  <span className="flex items-center gap-2">
+                    {r.name}
+                    <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>
+                  </span>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      ) : null}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="outline">
+            <Plus className="h-4 w-4" />
+            Nový závod
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nový závod</DialogTitle>
+            <DialogDescription>Základní údaje. Kategorie a stanoviště doplníš v taby.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="race-name">Název</Label>
+              <Input
+                id="race-name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Svojsíkův závod — okresní kolo"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="race-date">Datum</Label>
+                <Input id="race-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="race-location">Místo</Label>
+                <Input
+                  id="race-location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Kokořín"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={createRace.isPending}>
+                Vytvořit
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

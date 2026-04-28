@@ -1,0 +1,202 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Scout palette:
+    --scout-blue:   #336CAA  →  hsl(210 54% 43%)
+    --scout-yellow: #FCC11E  →  hsl(44 98% 55%)
+
+  Primary = scout blue (actions, links, focus).
+  Accent  = scout yellow (highlights, podium, warn-free attention).
+  Everything else stays neutral grayscale — minimalist, lots of whitespace,
+  hairline borders.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 16% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 16% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 16% 12%;
+
+    --primary: 210 54% 43%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 16% 18%;
+
+    --muted: 210 16% 96%;
+    --muted-foreground: 222 10% 42%;
+
+    --accent: 44 98% 55%;
+    --accent-foreground: 222 30% 12%;
+
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 210 54% 43%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222 20% 8%;
+    --foreground: 210 20% 96%;
+
+    --card: 222 20% 10%;
+    --card-foreground: 210 20% 96%;
+
+    --popover: 222 20% 10%;
+    --popover-foreground: 210 20% 96%;
+
+    --primary: 210 70% 60%;
+    --primary-foreground: 222 30% 10%;
+
+    --secondary: 222 16% 16%;
+    --secondary-foreground: 210 20% 96%;
+
+    --muted: 222 16% 16%;
+    --muted-foreground: 220 10% 65%;
+
+    --accent: 44 95% 58%;
+    --accent-foreground: 222 30% 10%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 16% 20%;
+    --input: 222 16% 20%;
+    --ring: 210 70% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  }
+
+  body {
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer utilities {
+  .focus-ring {
+    @apply outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  .hairline {
+    @apply border border-border;
+  }
+
+  .scout-underline {
+    background-image: linear-gradient(to right, hsl(var(--accent)), hsl(var(--accent)));
+    background-size: 100% 2px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+  }
+
+  .score-slider::-webkit-slider-runnable-track {
+    height: 3.5rem;
+    border-radius: 9999px;
+    background: transparent;
+  }
+
+  .score-slider::-webkit-slider-thumb {
+    width: 5rem;
+    height: 5rem;
+    margin-top: -0.75rem;
+    appearance: none;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+  }
+
+  .score-slider::-moz-range-track {
+    height: 3.5rem;
+    border-radius: 9999px;
+    background: transparent;
+  }
+
+  .score-slider::-moz-range-thumb {
+    width: 5rem;
+    height: 5rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+  }
+
+  .score-drag-hint {
+    animation: score-drag-hint 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes score-drag-hint {
+  0%,
+  100% {
+    transform: translateX(-1.5rem);
+  }
+
+  50% {
+    transform: translateX(1.5rem);
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body > *:not(#login-cards-print) {
+    display: none !important;
+  }
+
+  #login-cards-print {
+    display: block !important;
+    position: static !important;
+    width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  #login-cards-print .login-card {
+    min-height: 58mm !important;
+    margin-bottom: 6mm;
+    border-color: #d4d4d8;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #login-cards-print .login-card:last-child {
+    margin-bottom: 0;
+  }
+
+  #login-cards-print button {
+    appearance: none;
+  }
+
+  #login-cards-print .login-card:nth-child(4n):not(:last-child) {
+    break-after: page;
+    page-break-after: always;
+  }
+}
