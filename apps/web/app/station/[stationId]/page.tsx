@@ -7,7 +7,6 @@ import { ArrowLeft, Loader2, QrCode, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { PatrolPicker } from "@/components/station/patrol-picker";
 import { ScoreForm } from "@/components/station/score-form";
 import { useStationLogin, useStationMe, useStationEntries } from "@/lib/queries/station";
@@ -122,15 +121,16 @@ export default function StationPage() {
   const existingForSelected = selected ? entries.find((e) => e.patrol === selected.id) ?? null : null;
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
-        <div className="container flex h-14 items-center justify-between gap-3">
+    <div className="min-h-screen bg-scout-bg-app text-scout-text">
+      <header className="sticky top-0 z-30 bg-scout-blue text-white">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             {mode === "score" ? (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => { setSelected(null); setMode("pick"); }}
+                className="text-white/80 hover:bg-white/10 hover:text-white"
                 aria-label="Zpět"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -139,34 +139,27 @@ export default function StationPage() {
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-scout-yellow" />
             )}
             <div className="min-w-0">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Stanoviště
+              <div className="text-11 text-white/50">
+                Stanoviště #{stationId}
               </div>
-              <div className="truncate text-base font-semibold leading-tight">{station.name}</div>
+              <div className="truncate text-20 font-bold leading-tight">{station.name}</div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="hidden sm:inline-flex">
+            <Badge variant="secondary" className="hidden bg-white/10 text-white/80 sm:inline-flex">
               {entries.length}/{payload.patrols.length} hlídek
             </Badge>
-            <Button variant="ghost" size="icon" onClick={refresh} aria-label="Obnovit">
+            <Button variant="ghost" size="icon" onClick={refresh} className="text-white/80 hover:bg-white/10 hover:text-white" aria-label="Obnovit">
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <ThemeToggle />
           </div>
         </div>
       </header>
 
-      <main className="container max-w-4xl py-6 sm:py-10">
+      <main className="mx-auto max-w-4xl px-3.5 py-4 sm:px-6 sm:py-6">
         {mode === "pick" ? (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-xl font-semibold sm:text-2xl">Vyber hlídku</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Seřazeno podle startovního čísla. U bodovaných hlídek vidíš součet bodů — kliknutím zápis přepíšeš.
-              </p>
-            </div>
+          <div className="space-y-3">
             <PatrolPicker
               patrols={payload.patrols}
               entries={entries}

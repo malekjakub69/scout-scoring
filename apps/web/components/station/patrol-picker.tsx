@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Search } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Check, ChevronRight, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Patrol, ScoreEntry } from "@/lib/api/types";
@@ -40,69 +39,95 @@ export function PatrolPicker({
       String(p.start_number).includes(needle) || p.name.toLowerCase().includes(needle)
     );
   }, [patrols, q]);
+  const waiting = filtered.filter((p) => !doneIds.has(p.id));
+  const done = filtered.filter((p) => doneIds.has(p.id));
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Start. číslo nebo název hlídky…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="h-12 pl-9 text-base"
-          inputMode="search"
-          autoFocus
-        />
+    <div className="flex flex-col">
+      <div className="-mx-3.5 border-b border-scout-border bg-white px-3.5 py-2.5 sm:mx-0 sm:rounded-12 sm:border">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-scout-text-muted" />
+          <Input
+            placeholder="Číslo nebo název hlídky…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-11 rounded-10 bg-scout-bg-app pl-10 text-14 shadow-none"
+            inputMode="search"
+            autoFocus
+          />
+        </div>
       </div>
 
-      <div className="grid max-h-[60vh] gap-1.5 overflow-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered
-          .sort((a, b) => {
-            const aDone = doneIds.has(a.id);
-            const bDone = doneIds.has(b.id);
-            if (aDone === bDone) return 0;
-            return aDone ? 1 : -1; // hotové na konec
-          })
-          .map((p) => {
-   
-          const done = doneIds.has(p.id);
-          const points = pointsByPatrol.get(p.id) ?? 0;
-          const selected = selectedId === p.id;
-          return (
-            <button
-              key={p.id}
-              onClick={() => onSelect(p.id)}
-              className={cn(
-                "group flex items-center justify-between rounded-md border border-border bg-card p-3 text-left transition-colors",
-                "hover:border-primary/60 hover:bg-primary/5",
-                selected && "border-primary bg-primary/5 ring-1 ring-primary"
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-secondary font-mono text-sm tabular-nums">
-                  {p.start_number}
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{p.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {p.category ?? "—"}
-                  </div>
-                </div>
-              </div>
-              {done ? (
-                <Badge variant="accent" className="ml-2 shrink-0">
-                  <Check className="mr-1 h-3 w-3" /> {points} b.
-                </Badge>
-              ) : null}
-            </button>
-          );
-        })}
+      <div className="max-h-[calc(100vh-154px)] overflow-y-auto py-2">
+        <SectionLabel>Čekají na odbavení ({waiting.length})</SectionLabel>
+        {waiting.map((p) => (
+          <PatrolRow key={p.id} patrol={p} selected={selectedId === p.id} done={false} points={pointsByPatrol.get(p.id) ?? 0} onSelect={onSelect} />
+        ))}
+        <SectionLabel>Odbaveno ({done.length})</SectionLabel>
+        {done.map((p) => (
+          <PatrolRow key={p.id} patrol={p} selected={selectedId === p.id} done points={pointsByPatrol.get(p.id) ?? 0} onSelect={onSelect} />
+        ))}
         {filtered.length === 0 ? (
-          <div className="col-span-full py-8 text-center text-sm text-muted-foreground">
+          <div className="py-8 text-center text-13 text-scout-text-muted">
             Žádná hlídka nenalezena.
           </div>
         ) : null}
       </div>
     </div>
   );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <div className="px-0 py-2 text-11 font-semibold uppercase tracking-0.6 text-scout-text-muted">{children}</div>;
+}
+
+function PatrolRow({
+  patrol,
+  selected,
+  done,
+  points,
+  onSelect,
+}: {
+  patrol: Patrol;
+  selected: boolean;
+  done: boolean;
+  points: number;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(patrol.id)}
+      className={cn(
+        "mb-1.75 flex w-full items-center gap-3 rounded-10 border-1.5 bg-white px-3.5 py-3 text-left transition",
+        done ? "border-scout-green-border opacity-75" : "border-scout-border",
+        selected && "ring-2 ring-scout-blue"
+      )}
+    >
+      <span className={`grid h-10.5 w-10.5 shrink-0 place-items-center rounded-10 text-16 font-bold tabular-nums text-white ${done ? "bg-scout-green" : "bg-scout-blue"}`}>
+        {patrol.start_number}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-15 font-semibold text-scout-text">{patrol.name}</span>
+        <span className="mt-0.25 block truncate text-12 text-scout-text-muted">{formatCategory(patrol.category)}</span>
+      </span>
+      {done ? (
+        <span className="inline-flex shrink-0 items-center gap-1 text-12 font-bold text-scout-green">
+          <Check className="h-3.5 w-3.5" />
+          {points} b.
+        </span>
+      ) : (
+        <ChevronRight className="h-4.5 w-4.5 shrink-0 text-scout-text-muted" />
+      )}
+    </button>
+  );
+}
+
+function formatCategory(category?: string | null) {
+  if (!category) return "Bez kategorie";
+  const normalized = category.toLowerCase();
+  if (normalized === "d") return "Dívčí";
+  if (normalized === "ch") return "Chlapecká";
+  if (normalized === "n") return "Nesoutěžní";
+  return category;
 }

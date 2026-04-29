@@ -3,16 +3,14 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { LogOut, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AppShell } from "@/components/app-shell";
 import { RaceSelector } from "@/components/organizer/race-selector";
 import { OverviewTab } from "@/components/organizer/overview-tab";
 import { PatrolsTab } from "@/components/organizer/patrols-tab";
 import { StationsTab } from "@/components/organizer/stations-tab";
 import { SettingsTab } from "@/components/organizer/settings-tab";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Button } from "@/components/ui/button";
 import * as Auth from "@/lib/api/auth";
 import { ApiError, tokens } from "@/lib/api/client";
 import { useMe } from "@/lib/queries/auth";
@@ -81,40 +79,96 @@ export default function DashboardPage() {
   }
 
   return (
-    <AppShell
-      organizer={meData ?? null}
-      rightSlot={
-        <RaceSelector races={races} current={current} onPick={setCurrentId} onCreated={(r) => setCurrentId(r.id)} />
-      }
-    >
-      {current ? (
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList>
-            <TabsTrigger value="overview">Přehled</TabsTrigger>
-            <TabsTrigger value="patrols">Hlídky</TabsTrigger>
-            <TabsTrigger value="stations">Stanoviště</TabsTrigger>
-            <TabsTrigger value="settings">Nastavení</TabsTrigger>
-          </TabsList>
+    <div className="flex min-h-screen flex-col overflow-hidden bg-scout-bg-app text-scout-text">
+      <Tabs defaultValue="overview" className="flex min-h-screen flex-col">
+        <header className="flex h-13 shrink-0 items-center gap-3 bg-scout-blue px-7 text-white">
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="h-2.25 w-2.25 rounded-full bg-scout-yellow" />
+            <span className="text-15 font-bold tracking-tightest">Scout Scoring</span>
+          </div>
+          <div className="h-5 w-px bg-white/20" />
+          <RaceSelector races={races} current={current} onPick={setCurrentId} onCreated={(r) => setCurrentId(r.id)} />
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={() => {
+              Auth.logout();
+              router.replace("/login");
+            }}
+            className="hidden items-center gap-2 rounded-8 border border-white/20 bg-white/10 px-3 py-1.75 text-12 font-medium text-white/80 transition hover:bg-white/15 sm:inline-flex"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Odhlásit
+          </button>
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-1.5 border-white/25 bg-white/15 text-12 font-bold">
+            {(meData?.name ?? meData?.email ?? "OR").slice(0, 2).toUpperCase()}
+          </div>
+        </header>
 
-          <TabsContent value="overview">
-            <OverviewTab raceId={current.id} />
-          </TabsContent>
-          <TabsContent value="patrols">
-            <PatrolsTab raceId={current.id} />
-          </TabsContent>
-          <TabsContent value="stations">
-            <StationsTab raceId={current.id} />
-          </TabsContent>
-          <TabsContent value="settings">
-            <SettingsTab raceId={current.id} />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        <EmptyState
-          title="Žádný závod"
-          description="Začni založením prvního závodu"
-        />
-      )}
-    </AppShell>
+        {current ? (
+          <>
+            <section className="flex shrink-0 items-center gap-4 bg-dashboard-hero px-7 py-4 text-white">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1.25 flex flex-wrap items-center gap-2.5">
+                  <RaceStatePill state={current.state} />
+                  <span className="text-12 text-white/55">
+                    {[current.location, formatRaceDate(current.date)].filter(Boolean).join(" · ") || "Bez místa a data"}
+                  </span>
+                </div>
+                <h1 className="truncate text-22 font-bold leading-none">{current.name}</h1>
+              </div>
+            </section>
+
+            <TabsList>
+              <TabsTrigger value="overview">Přehled</TabsTrigger>
+              <TabsTrigger value="patrols">Hlídky</TabsTrigger>
+              <TabsTrigger value="stations">Stanoviště</TabsTrigger>
+              <TabsTrigger value="settings">Nastavení</TabsTrigger>
+            </TabsList>
+
+            <main className="min-h-0 flex-1 overflow-hidden p-4.5 px-7">
+              <TabsContent value="overview" className="h-full">
+                <OverviewTab raceId={current.id} />
+              </TabsContent>
+              <TabsContent value="patrols" className="h-full">
+                <PatrolsTab raceId={current.id} />
+              </TabsContent>
+              <TabsContent value="stations" className="h-full">
+                <StationsTab raceId={current.id} />
+              </TabsContent>
+              <TabsContent value="settings" className="h-full overflow-y-auto">
+                <SettingsTab raceId={current.id} />
+              </TabsContent>
+            </main>
+          </>
+        ) : (
+          <main className="grid flex-1 place-items-center p-7">
+            <EmptyState
+              title="Žádný závod"
+              description="Začni založením prvního závodu"
+              action={
+                <RaceSelector races={races} current={current} onPick={setCurrentId} onCreated={(r) => setCurrentId(r.id)} />
+              }
+            />
+          </main>
+        )}
+      </Tabs>
+    </div>
   );
+}
+
+function RaceStatePill({ state }: { state: "draft" | "active" | "closed" }) {
+  const label = state === "active" ? "BĚŽÍ" : state === "closed" ? "UZAVŘENO" : "PŘÍPRAVA";
+  return (
+    <span className="rounded-full bg-scout-yellow px-2.25 py-0.75 text-2xs font-bold uppercase tracking-0.5 text-scout-text">
+      ● {label}
+    </span>
+  );
+}
+
+function formatRaceDate(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("cs-CZ", { day: "numeric", month: "numeric", year: "numeric" }).format(date);
 }

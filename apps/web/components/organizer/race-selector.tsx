@@ -66,7 +66,7 @@ export function RaceSelector({
     <div className="flex items-center gap-2">
       {races.length > 0 ? (
         <Select value={current?.id ?? undefined} onValueChange={onPick}>
-          <SelectTrigger className="w-[240px]">
+          <SelectTrigger className="h-8 w-[240px] rounded-8 border border-white/20 bg-white/10 px-3 text-13 font-medium text-white shadow-none data-[placeholder]:text-white/60">
             <SelectValue placeholder="Vyber závod…" />
           </SelectTrigger>
           <SelectContent>
@@ -87,7 +87,7 @@ export function RaceSelector({
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" className="border-white/20 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white">
             <Plus className="h-4 w-4" />
             Nový závod
           </Button>
@@ -95,7 +95,7 @@ export function RaceSelector({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nový závod</DialogTitle>
-            <DialogDescription>Základní údaje. Kategorie a stanoviště doplníš v taby.</DialogDescription>
+            <DialogDescription>Základní údaje. Kategorie a stanoviště doplníš v tabech.</DialogDescription>
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">

@@ -157,17 +157,17 @@ export function SettingsTab({ raceId }: { raceId: string }) {
   }
 
   return (
-    <div className="space-y-10">
+    <div className="mx-auto max-w-4xl space-y-4">
       {readOnly ? (
-        <div className="rounded-md border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
+        <div className="rounded-12 border border-scout-border bg-white p-4 text-13 text-scout-text-muted">
           Závod je ve stavu <Badge variant="default" className="mx-1">{race.state}</Badge>. Některá pole jsou uzamčena.
         </div>
       ) : null}
 
-      <form onSubmit={handleSettingsSubmit(onSave)} className="space-y-6">
+      <form onSubmit={handleSettingsSubmit(onSave)} className="space-y-5 rounded-12 border border-scout-border bg-white p-5">
         <div>
-          <h2 className="text-lg font-semibold">Základní</h2>
-          <p className="text-sm text-muted-foreground">Název, datum, místo konání.</p>
+          <h2 className="text-16 font-bold text-scout-text">Základní</h2>
+          <p className="text-12 text-scout-text-muted">Název, datum, místo konání.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
@@ -188,8 +188,8 @@ export function SettingsTab({ raceId }: { raceId: string }) {
         <Separator />
 
         <div>
-          <h2 className="text-lg font-semibold">Bodování</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-16 font-bold text-scout-text">Bodování</h2>
+          <p className="text-12 text-scout-text-muted">
             V MVP jen součet bodů. Ostatní modely budou v další verzi.
           </p>
         </div>
@@ -237,10 +237,10 @@ export function SettingsTab({ raceId }: { raceId: string }) {
 
       <Separator />
 
-      <section>
+      <section className="rounded-12 border border-scout-border bg-white p-5">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold">Kategorie</h2>
-          <p className="text-sm text-muted-foreground">Každá má vlastní výsledkovku (dívčí / chlapecké / nesoutěžní).</p>
+          <h2 className="text-16 font-bold text-scout-text">Kategorie</h2>
+          <p className="text-12 text-scout-text-muted">Každá má vlastní výsledkovku (dívčí / chlapecké / nesoutěžní).</p>
         </div>
 
         <div className="mb-4 flex flex-wrap gap-2">

@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useRace } from "@/lib/queries/races";
 import { useCategories } from "@/lib/queries/categories";
 import {
@@ -88,11 +87,11 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Hlídky</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-18 font-bold text-scout-text">Hlídky</h2>
+          <p className="text-12 text-scout-text-muted">
             {patrols.length} hlídek · očekává se 10–25 v okresním kole.
           </p>
         </div>
@@ -111,14 +110,14 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
             </Button>
           </div>
         ) : race ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-12 text-scout-text-muted">
             Závod je {race.state === "active" ? "spuštěný" : "uzavřený"} — lze už jen upravovat.
           </p>
         ) : null}
       </div>
 
       {patrolsLoading ? (
-        <div className="p-8 text-center text-sm text-muted-foreground">Načítám…</div>
+        <div className="rounded-12 border border-scout-border bg-white p-8 text-center text-13 text-scout-text-muted">Načítám…</div>
       ) : patrols.length === 0 ? (
         <EmptyState
           title="Žádné hlídky"
@@ -138,50 +137,54 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">#</TableHead>
-                <TableHead>Název</TableHead>
-                <TableHead>Kategorie</TableHead>
-                <TableHead>Členové</TableHead>
-                <TableHead className="w-24" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {patrols.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium tabular-nums">{p.start_number}</TableCell>
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {categories.find((c) => c.id === p.category)?.name ?? p.category ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {(p.members ?? []).length ? `${(p.members ?? []).length} členů` : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)} aria-label="Upravit">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {canModify ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => onDelete(p)}
-                          aria-label="Smazat"
-                        >
-                          <Trash2 className="h-4 w-4" />
+        <div className="min-h-0 flex-1 overflow-hidden rounded-12 border border-scout-border bg-white">
+          <div className="h-full overflow-y-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-scout-bg-table">
+                  {["#", "Název", "Kategorie", "Členové", ""].map((h, i) => (
+                    <th key={`${h}-${i}`} className={`border-b border-scout-border px-3 py-2 text-2xs font-semibold uppercase tracking-0.5 text-scout-text-muted ${i === 4 ? "w-24" : "text-left"}`}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {patrols.map((p, index) => (
+                  <tr key={p.id} className={`border-b border-scout-border ${index % 2 === 0 ? "bg-white" : "bg-scout-bg-subtle"}`}>
+                    <td className="w-14 px-3 py-2.25">
+                      <span className="grid h-8 w-8 place-items-center rounded-8 bg-scout-blue text-13 font-bold tabular-nums text-white">{p.start_number}</span>
+                    </td>
+                    <td className="px-3 py-2.25 text-13 font-semibold text-scout-text">{p.name}</td>
+                    <td className="px-3 py-2.25">
+                      <CategoryBadge label={categories.find((c) => c.id === p.category)?.name ?? p.category ?? "—"} />
+                    </td>
+                    <td className="px-3 py-2.25 text-12 text-scout-text-muted">
+                      {(p.members ?? []).length ? `${(p.members ?? []).length} členů` : "—"}
+                    </td>
+                    <td className="px-3 py-2.25">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)} aria-label="Upravit">
+                          <Pencil className="h-4 w-4" />
                         </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                        {canModify ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => onDelete(p)}
+                            aria-label="Smazat"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -196,6 +199,17 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
       />
     </div>
   );
+}
+
+function CategoryBadge({ label }: { label: string }) {
+  const normalized = label.toLowerCase();
+  const tone = normalized.includes("dív") || normalized === "d"
+    ? "bg-scout-category-girls text-scout-blue-mid"
+    : normalized.includes("chlap") || normalized === "ch"
+      ? "bg-scout-category-boys text-scout-blue"
+      : "bg-scout-category-open text-scout-text-warm";
+
+  return <span className={`inline-flex rounded-full px-2 py-0.75 text-11 font-semibold ${tone}`}>{label}</span>;
 }
 
 function PatrolDialog({

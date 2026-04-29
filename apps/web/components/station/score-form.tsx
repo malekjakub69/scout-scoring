@@ -130,23 +130,24 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <form onSubmit={handleSubmit(onSubmit)} className="-mx-3.5 flex min-h-[calc(100vh-76px)] flex-col sm:mx-0">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-3.5 sm:px-0">
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Hlídka #{patrol.start_number}
+          <div className="text-12 text-scout-text-muted">
+            <span className="font-mono">#{patrol.start_number}</span> · {formatCategory(patrol.category)}
           </div>
-          <div className="text-xl font-semibold">{patrol.name}</div>
+          <div className="text-21 font-bold text-scout-text">{patrol.name}</div>
         </div>
         {existing ? (
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-xs">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-scout-yellow-border bg-scout-yellow-soft px-3 py-1 text-11 text-scout-text">
             <CheckCircle2 className="h-3.5 w-3.5 text-accent-foreground" />
             <span>Přepisuješ existující zápis</span>
           </div>
         ) : null}
       </div>
 
-      <div className="space-y-3">
+      <div className="flex-1 overflow-y-auto px-3.5 sm:px-0">
+        <div className="space-y-3">
         {criteria.map((criterion, index) => {
           const fieldKey = criterionFieldKey(criterion, index);
           return (
@@ -165,18 +166,12 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
           />
           );
         })}
+        </div>
       </div>
 
-      <div className="flex items-center justify-between rounded-md border border-border bg-secondary/50 px-4 py-3">
-        <span className="text-sm text-muted-foreground">Celkem</span>
-        <span className="text-2xl font-semibold tabular-nums">
-          {total} <span className="text-base text-muted-foreground">/ {maxTotal}</span>
-        </span>
-      </div>
-
-      <div className="rounded-md border border-border p-4">
+      <div className="mx-3.5 mt-4 rounded-12 border border-scout-border bg-white p-4 sm:mx-0">
         <div className="flex items-center justify-between">
-          <Label className="flex items-center gap-2 text-foreground">
+          <Label className="flex items-center gap-2 text-scout-text">
             <Clock className="h-4 w-4" /> Zaznamenat čas
           </Label>
           <Switch checked={withTime} onCheckedChange={(checked) => setValue("withTime", checked)} />
@@ -197,13 +192,19 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
         ) : null}
       </div>
 
-      <div className="sticky bottom-0 -mx-4 flex items-center justify-between gap-2 border-t border-border bg-background/95 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:m-0 sm:border-0 sm:p-0">
+      <div className="sticky bottom-0 mt-4 flex items-center gap-3 border-t-1.5 border-scout-border bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="min-w-0 flex-1">
+          <div className="text-11 text-scout-text-muted">Celkem bodů</div>
+          <div className="text-26 font-bold leading-none tabular-nums text-scout-text">
+            {total}<span className="text-14 font-normal text-scout-text-muted"> / {maxTotal}</span>
+          </div>
+        </div>
         <Button type="button" variant="ghost" onClick={onCancel}>
           Zrušit
         </Button>
-        <Button type="submit" size="lg" disabled={submitting} className="min-w-[140px]">
+        <Button type="submit" variant="accent" size="lg" disabled={submitting} className="shrink-0">
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Uložit {total > 0 ? `- ${total} b.` : ""}
+          Uložit ({total} b.)
         </Button>
       </div>
     </form>
@@ -229,21 +230,23 @@ function CriterionRow({
   const tickValues = createTickValues(max);
 
   return (
-    <div className={`rounded-lg border bg-card p-4 ${error ? "border-destructive" : "border-border"}`}>
-      <div className="flex items-start justify-between gap-3">
-        <Label htmlFor={inputId} className="text-base font-semibold">
+    <div className={`mb-3 rounded-12 border bg-white p-4 ${error ? "border-destructive" : "border-scout-border"}`}>
+      <div className="mb-7 flex items-baseline justify-between gap-3">
+        <Label htmlFor={inputId} className="text-16 font-semibold text-scout-text">
           {criterion.name}
         </Label>
-        <span className="shrink-0 text-xs text-muted-foreground">max {max}</span>
+        <span className="shrink-0 text-12 text-scout-text-muted">max {max} b.</span>
       </div>
 
-      <div className="relative mt-6 px-2 pb-7 pt-10">
-        <div className="absolute inset-x-2 top-10 h-14 rounded-full border border-border bg-white shadow-sm" />
+      <div className="relative h-12">
+        <div className="absolute left-0 right-0 top-1/2 h-2.5 -translate-y-1/2 overflow-hidden rounded-full border border-scout-border bg-scout-bg-app">
+          <div className="h-full rounded-full bg-scout-blue" style={{ width: `${percent}%` }} />
+        </div>
         <div
-          className="pointer-events-none absolute top-6 z-10 grid h-20 w-20 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-[left] duration-100"
-          style={{ left: `clamp(2.5rem, ${percent}%, calc(100% - 2.5rem))`, transform: "translateX(-50%)" }}
+          className="pointer-events-none absolute top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full border-[3px] border-white bg-scout-blue text-white shadow-slider-thumb transition-[left] duration-100"
+          style={{ left: `calc(${percent}% - ${(percent / 100) * 48}px)` }}
         >
-          <span className="text-2xl font-bold tabular-nums">{current}</span>
+          <span className="text-18 font-bold tabular-nums">{current}</span>
         </div>
         <input
           id={inputId}
@@ -253,17 +256,17 @@ function CriterionRow({
           step={1}
           value={current}
           onChange={(event) => onChange(Number(event.target.value))}
-          className="score-slider relative z-20 h-20 w-full cursor-pointer appearance-none bg-transparent"
+          className="absolute inset-0 z-20 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
           aria-label={criterion.name}
           aria-valuetext={`${current} z ${max} bodů`}
         />
-        <div className="pointer-events-none absolute inset-x-12 bottom-20 flex justify-between text-xs font-medium text-muted-foreground">
+      </div>
+      <div className="mt-3 flex justify-between text-11 text-scout-text-muted">
           {tickValues.map((tick) => (
             <span key={tick} className="tabular-nums">
               {tick}
             </span>
           ))}
-        </div>
       </div>
       <FieldError message={error} />
     </div>
@@ -309,4 +312,13 @@ function createTickValues(max: number) {
 
   const raw = [0, Math.round(max * 0.25), Math.round(max * 0.5), Math.round(max * 0.75), max];
   return Array.from(new Set(raw));
+}
+
+function formatCategory(category?: string | null) {
+  if (!category) return "Bez kategorie";
+  const normalized = category.toLowerCase();
+  if (normalized === "d") return "Dívčí";
+  if (normalized === "ch") return "Chlapecká";
+  if (normalized === "n") return "Nesoutěžní";
+  return category;
 }

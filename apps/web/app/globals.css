@@ -2,46 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
-  Scout palette:
-    --scout-blue:   #336CAA  →  hsl(210 54% 43%)
-    --scout-yellow: #FCC11E  →  hsl(44 98% 55%)
-
-  Primary = scout blue (actions, links, focus).
-  Accent  = scout yellow (highlights, podium, warn-free attention).
-  Everything else stays neutral grayscale — minimalist, lots of whitespace,
-  hairline borders.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 16% 12%;
+    --background: 45 24% 91%;
+    --foreground: 219 31% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 16% 12%;
+    --card-foreground: 219 31% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 16% 12%;
+    --popover-foreground: 219 31% 14%;
 
-    --primary: 210 54% 43%;
+    --primary: 221 53% 34%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 222 16% 18%;
+    --secondary: 42 25% 95%;
+    --secondary-foreground: 219 31% 14%;
 
-    --muted: 210 16% 96%;
-    --muted-foreground: 222 10% 42%;
+    --muted: 42 23% 96%;
+    --muted-foreground: 215 10% 60%;
 
-    --accent: 44 98% 55%;
-    --accent-foreground: 222 30% 12%;
+    --accent: 39 100% 48%;
+    --accent-foreground: 219 31% 14%;
 
-    --destructive: 0 72% 48%;
+    --destructive: 8 79% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 210 54% 43%;
+    --border: 42 15% 86%;
+    --input: 42 15% 86%;
+    --ring: 221 53% 34%;
 
     --radius: 0.5rem;
   }
@@ -56,7 +45,7 @@
     --popover: 222 20% 10%;
     --popover-foreground: 210 20% 96%;
 
-    --primary: 210 70% 60%;
+    --primary: 221 58% 62%;
     --primary-foreground: 222 30% 10%;
 
     --secondary: 222 16% 16%;
@@ -65,7 +54,7 @@
     --muted: 222 16% 16%;
     --muted-foreground: 220 10% 65%;
 
-    --accent: 44 95% 58%;
+    --accent: 39 96% 56%;
     --accent-foreground: 222 30% 10%;
 
     --destructive: 0 65% 55%;
@@ -103,7 +92,7 @@
   }
 
   .scout-underline {
-    background-image: linear-gradient(to right, hsl(var(--accent)), hsl(var(--accent)));
+    background-image: linear-gradient(to right, #f49e00, #f49e00);
     background-size: 100% 2px;
     background-position: 0 100%;
     background-repeat: no-repeat;

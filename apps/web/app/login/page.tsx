@@ -33,16 +33,20 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-6">
-      <div className="w-full max-w-sm">
+    <main className="grid min-h-screen place-items-center bg-scout-bg-app px-6 text-scout-text">
+      <div className="w-full max-w-sm rounded-12 border border-scout-border bg-white p-6 shadow-sm">
         <Link
           href="/"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="mb-6 inline-flex items-center gap-2 text-13 text-scout-text-muted hover:text-scout-text"
         >
           <ArrowLeft className="h-4 w-4" /> zpět
         </Link>
 
-        <h1 className="text-2xl font-semibold tracking-tight">Přihlášení organizátora</h1>
+        <div className="mb-5 flex items-center gap-2">
+          <span className="h-2.25 w-2.25 rounded-full bg-scout-yellow" />
+          <span className="text-15 font-bold tracking-tightest text-scout-blue">Scout Scoring</span>
+        </div>
+        <h1 className="text-22 font-bold tracking-tight">Přihlášení organizátora</h1>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
           <div className="space-y-2">

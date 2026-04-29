@@ -76,11 +76,11 @@ export function StationsTab({ raceId }: { raceId: string }) {
   if (!race) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Stanoviště</h2>
-          <p className="text-sm text-muted-foreground">Kritéria bodování konfiguruješ per stanoviště.</p>
+          <h2 className="text-18 font-bold text-scout-text">Stanoviště</h2>
+          <p className="text-12 text-scout-text-muted">Kritéria bodování konfiguruješ per stanoviště.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setCardsOpen(true)} disabled={stations.length === 0}>
@@ -108,7 +108,7 @@ export function StationsTab({ raceId }: { raceId: string }) {
       </div>
 
       {stationsLoading ? (
-        <div className="p-8 text-center text-sm text-muted-foreground">Načítám…</div>
+        <div className="rounded-12 border border-scout-border bg-white p-8 text-center text-13 text-scout-text-muted">Načítám…</div>
       ) : stations.length === 0 ? (
         <EmptyState
           title="Žádná stanoviště"
@@ -126,22 +126,23 @@ export function StationsTab({ raceId }: { raceId: string }) {
           }
         />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {stations.map((s) => {
             const totalPoints = (s.criteria ?? []).reduce((sum, c) => sum + (c.max_points || 0), 0);
             const criteriaCount = s.criteria?.length ?? 0;
             return (
-              <div key={s.id} className="rounded-lg border border-border bg-card p-5">
+              <div key={s.id} className="rounded-12 border border-scout-border bg-white p-4.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <div className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-0.6 text-scout-text-muted">
                       #{s.position}
                       {s.is_active ? <Badge variant="default">Aktivní</Badge> : <Badge variant="muted">Neaktivní</Badge>}
                     </div>
-                    <div className="mt-1 truncate text-base font-semibold">{s.name}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      Max <span className="font-semibold tabular-nums text-foreground">{totalPoints}</span> b.
-                      <span className="mx-2 text-border">·</span>
+                    <div className="mt-1 truncate text-16 font-bold text-scout-text">{s.name}</div>
+                    <div className="mt-1 text-12 text-scout-text-muted">
+                      Max <span className="font-bold tabular-nums text-scout-text">{totalPoints}</span> b.
+                      <span className="mx-2 text-scout-border">·</span>
                       {criteriaCount} {pluralizeCriteria(criteriaCount)}
                     </div>
                   </div>
@@ -166,29 +167,29 @@ export function StationsTab({ raceId }: { raceId: string }) {
                 </div>
 
                 {criteriaCount > 0 ? (
-                  <details className="group mt-4 border-t border-border pt-3">
-                    <summary className="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground hover:text-foreground">
+                  <details className="group mt-4 border-t border-scout-border pt-3">
+                    <summary className="flex cursor-pointer list-none items-center justify-between text-13 text-scout-text-muted hover:text-scout-text">
                       <span>Podúkoly</span>
                       <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
                     </summary>
                     <div className="mt-3 space-y-1">
                       {s.criteria!.map((c, i) => (
-                        <div key={i} className="flex items-center justify-between text-sm">
+                        <div key={i} className="flex items-center justify-between text-13 text-scout-text">
                           <span>{c.name}</span>
-                          <span className="text-muted-foreground tabular-nums">{c.max_points} b.</span>
+                          <span className="tabular-nums text-scout-text-muted">{c.max_points} b.</span>
                         </div>
                       ))}
                     </div>
                   </details>
                 ) : (
-                  <div className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">Žádná kritéria</div>
+                  <div className="mt-4 border-t border-scout-border pt-3 text-13 text-scout-text-muted">Žádná kritéria</div>
                 )}
 
-                <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="mt-4 flex items-center gap-2 text-12 text-scout-text-muted">
                   {s.pin ? (
                     <span className="inline-flex items-center gap-1">
                       <KeyRound className="h-3.5 w-3.5" />
-                      PIN: <code className="font-mono text-foreground">{s.pin}</code>
+                      PIN: <code className="font-mono text-scout-text">{s.pin}</code>
                     </span>
                   ) : (
                     <span className="italic">Login Cards ještě nevygenerovány</span>
@@ -197,6 +198,7 @@ export function StationsTab({ raceId }: { raceId: string }) {
               </div>
             );
           })}
+          </div>
         </div>
       )}
 
