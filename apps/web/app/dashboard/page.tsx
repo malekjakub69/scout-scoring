@@ -146,9 +146,6 @@ export default function DashboardPage() {
             <EmptyState
               title="Žádný závod"
               description="Začni založením prvního závodu"
-              action={
-                <RaceSelector races={races} current={current} onPick={setCurrentId} onCreated={(r) => setCurrentId(r.id)} />
-              }
             />
           </main>
         )}
