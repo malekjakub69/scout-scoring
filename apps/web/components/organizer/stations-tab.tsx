@@ -48,7 +48,8 @@ export function StationsTab({ raceId }: { raceId: string }) {
   const [aiImportOpen, setAiImportOpen] = useState(false);
 
   const stations = stationsData ?? [];
-  const canModify = race?.state === "draft";
+  const canModify = race?.state === "draft" && race.access_role !== "read";
+  const canEdit = race?.access_role !== "read";
 
   async function onDeactivate(s: Station) {
     if (!confirm(`Deaktivovat stanoviště ${s.name}? Rozhodčí se už nedostanou dál.`)) return;
@@ -147,22 +148,26 @@ export function StationsTab({ raceId }: { raceId: string }) {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setDialogOpen(true); }} aria-label="Upravit">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onResetPin(s)}
-                      disabled={resetPin.isPending || race.state !== "active"}
-                      aria-label="Restartovat PIN"
-                      title="Restartovat PIN"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDeactivate(s)} aria-label="Deaktivovat">
-                      <Power className="h-4 w-4" />
-                    </Button>
+                    {canEdit ? (
+                      <>
+                        <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setDialogOpen(true); }} aria-label="Upravit">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onResetPin(s)}
+                          disabled={resetPin.isPending || race.state !== "active"}
+                          aria-label="Restartovat PIN"
+                          title="Restartovat PIN"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => onDeactivate(s)} aria-label="Deaktivovat">
+                          <Power className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : null}
                   </div>
                 </div>
 
@@ -202,23 +207,35 @@ export function StationsTab({ raceId }: { raceId: string }) {
         </div>
       )}
 
-      <StationDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+      {canEdit ? (
+        <StationDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          raceId={raceId}
+          station={editing}
+          nextPosition={stations.length ? Math.max(...stations.map((s) => s.position)) + 1 : 1}
+          onSaved={() => setDialogOpen(false)}
+        />
+      ) : null}
+
+      <LoginCardsDialog
+        open={cardsOpen}
+        onOpenChange={setCardsOpen}
+        stations={stations}
         raceId={raceId}
-        station={editing}
-        nextPosition={stations.length ? Math.max(...stations.map((s) => s.position)) + 1 : 1}
-        onSaved={() => setDialogOpen(false)}
+        raceName={race.name}
+        raceState={race.state}
+        canReissue={canEdit}
       />
 
-      <LoginCardsDialog open={cardsOpen} onOpenChange={setCardsOpen} stations={stations} raceId={raceId} raceName={race.name} raceState={race.state} />
-
-      <AiImportDialog
-        open={aiImportOpen}
-        onOpenChange={setAiImportOpen}
-        raceId={raceId}
-        startPosition={stations.length ? Math.max(...stations.map((s) => s.position)) + 1 : 1}
-      />
+      {canModify ? (
+        <AiImportDialog
+          open={aiImportOpen}
+          onOpenChange={setAiImportOpen}
+          raceId={raceId}
+          startPosition={stations.length ? Math.max(...stations.map((s) => s.position)) + 1 : 1}
+        />
+      ) : null}
     </div>
   );
 }
@@ -343,6 +360,7 @@ function LoginCardsDialog({
   raceId,
   raceName,
   raceState,
+  canReissue,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -350,6 +368,7 @@ function LoginCardsDialog({
   raceId: string;
   raceName: string;
   raceState: "draft" | "active" | "closed";
+  canReissue: boolean;
 }) {
   // QR URLs carry only station id + PIN. The judge-facing page exchanges
   // that short URL for a station token and stores it locally.
@@ -381,11 +400,11 @@ function LoginCardsDialog({
       return;
     }
 
-    if (raceState !== "draft" && !autoIssuedForOpen.current) {
+    if (canReissue && raceState !== "draft" && !autoIssuedForOpen.current) {
       autoIssuedForOpen.current = true;
       void issue();
     }
-  }, [open, raceState, issue]);
+  }, [canReissue, open, raceState, issue]);
 
   function onPrint() {
     window.print();
@@ -393,7 +412,7 @@ function LoginCardsDialog({
 
   const rows = stations.map((s) => ({
     ...s,
-    qr_url: issued[s.id]?.qr_url ?? s.qr_url,
+    qr_url: issued[s.id]?.qr_url ?? s.qr_url ?? (s.pin && mounted ? `${window.location.origin}/station/${s.id}?pin=${s.pin}` : undefined),
     pin: issued[s.id]?.pin ?? s.pin,
   }));
 
@@ -463,6 +482,11 @@ function LoginCardsDialog({
             Závod ještě neběží. Po spuštění závodu dostaneš jednorázové tokeny, které jsou teď skryté.
           </div>
         ) : null}
+        {!canReissue && raceState !== "draft" ? (
+          <div className="rounded-md border border-scout-border bg-scout-bg-subtle p-4 text-sm text-scout-text-muted">
+            Máš přístup jen pro čtení. Login Cards můžeš zobrazit a tisknout, ale nové PINy může vygenerovat jen editor závodu.
+          </div>
+        ) : null}
 
         <div id="login-cards" className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto pr-1">
           {rows.map(renderLoginCard)}
@@ -470,9 +494,11 @@ function LoginCardsDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Zavřít</Button>
-          <Button variant="outline" onClick={issue} disabled={reissue.isPending || raceState === "draft"}>
-            {reissue.isPending ? "Generuji…" : "Vygenerovat znovu"}
-          </Button>
+          {canReissue ? (
+            <Button variant="outline" onClick={issue} disabled={reissue.isPending || raceState === "draft"}>
+              {reissue.isPending ? "Generuji…" : "Vygenerovat znovu"}
+            </Button>
+          ) : null}
           <Button onClick={onPrint} disabled={raceState === "draft"}>Tisknout</Button>
         </DialogFooter>
       </DialogContent>

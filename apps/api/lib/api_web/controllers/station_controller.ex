@@ -37,6 +37,20 @@ defmodule ApiWeb.StationController do
 
   def login(conn, _), do: conn |> put_status(400) |> json(%{error: "missing_fields"})
 
+  def races(conn, _) do
+    case Races.list_active_races_public() do
+      {:ok, races} -> json(conn, %{data: races})
+      _ -> conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
+    end
+  end
+
+  def stations(conn, %{"race_id" => race_id}) do
+    case Races.list_active_stations_public(race_id) do
+      {:ok, stations} -> json(conn, %{data: stations})
+      _ -> conn |> put_status(404) |> json(%{error: "not_found"})
+    end
+  end
+
   def me(conn, _) do
     station = conn.assigns.station
     race_id = conn.assigns.race_id

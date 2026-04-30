@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { LogOut, Loader2 } from "lucide-react";
+import { LogOut, Loader2, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RaceSelector } from "@/components/organizer/race-selector";
 import { OverviewTab } from "@/components/organizer/overview-tab";
@@ -89,6 +89,16 @@ export default function DashboardPage() {
           <div className="h-5 w-px bg-white/20" />
           <RaceSelector races={races} current={current} onPick={setCurrentId} onCreated={(r) => setCurrentId(r.id)} />
           <div className="flex-1" />
+          {meData?.is_admin ? (
+            <button
+              type="button"
+              onClick={() => router.push("/users")}
+              className="hidden items-center gap-2 rounded-8 border border-white/20 bg-white/10 px-3 py-1.75 text-12 font-medium text-white/80 transition hover:bg-white/15 sm:inline-flex"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Uživatelé
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {

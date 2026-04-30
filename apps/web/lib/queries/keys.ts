@@ -5,6 +5,9 @@
  */
 export const qk = {
   me: ["me"] as const,
+  users: ["users"] as const,
+  user: (id: string) => ["users", id] as const,
+  userRaces: (id: string) => ["users", id, "races"] as const,
   races: {
     all: ["races"] as const,
     detail: (id: string) => ["races", id] as const,
@@ -12,8 +15,11 @@ export const qk = {
   categories: (raceId: string) => ["categories", raceId] as const,
   patrols: (raceId: string) => ["patrols", raceId] as const,
   stations: (raceId: string) => ["stations", raceId] as const,
+  raceMembers: (raceId: string) => ["race-members", raceId] as const,
   dashboard: (raceId: string) => ["dashboard", raceId] as const,
   leaderboard: (raceId: string) => ["leaderboard", raceId] as const,
   stationMe: ["station", "me"] as const,
   stationEntries: ["station", "entries"] as const,
+  stationRaces: ["station", "races"] as const,
+  stationOptions: (raceId: string) => ["station", "races", raceId, "stations"] as const,
 };

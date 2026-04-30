@@ -130,7 +130,7 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="-mx-3.5 flex min-h-[calc(100vh-76px)] flex-col sm:mx-0">
+    <form onSubmit={handleSubmit(onSubmit)} className="-mx-3.5 flex min-h-[calc(100vh-120px)] flex-col sm:mx-0">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-3.5 sm:px-0">
         <div>
           <div className="text-12 text-scout-text-muted">
@@ -261,9 +261,9 @@ function CriterionRow({
           aria-valuetext={`${current} z ${max} bodů`}
         />
       </div>
-      <div className="mt-3 flex justify-between text-11 text-scout-text-muted">
-          {tickValues.map((tick) => (
-            <span key={tick} className="tabular-nums">
+      <div className="mt-3 px-[12px] flex justify-between text-11 text-scout-text-muted">
+          {Array.from({ length: max + 1 }, (_, i) => i).map((tick) => (
+            <span key={tick} className="tabular-nums w-[20px] text-center">
               {tick}
             </span>
           ))}

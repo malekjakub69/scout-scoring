@@ -17,6 +17,21 @@ export function useStationLogin() {
   });
 }
 
+export function useActiveStationRaces() {
+  return useQuery({
+    queryKey: qk.stationRaces,
+    queryFn: StationApi.listActiveRaces,
+  });
+}
+
+export function useActiveStations(raceId: string | null | undefined) {
+  return useQuery({
+    queryKey: qk.stationOptions(raceId ?? "__nil__"),
+    queryFn: () => StationApi.listActiveStations(raceId as string),
+    enabled: !!raceId,
+  });
+}
+
 export function useStationEntries(enabled = true) {
   return useQuery({
     queryKey: qk.stationEntries,

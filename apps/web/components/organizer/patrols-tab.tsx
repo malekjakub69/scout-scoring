@@ -46,7 +46,8 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
 
   const patrols = patrolsData ?? [];
   const categories = categoriesData ?? [];
-  const canModify = race?.state === "draft";
+  const canModify = race?.state === "draft" && race.access_role !== "read";
+  const canEdit = race?.access_role !== "read";
 
   function openNew() {
     setEditing(null);
@@ -164,9 +165,11 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
                     </td>
                     <td className="px-3 py-2.25">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)} aria-label="Upravit">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        {canEdit ? (
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(p)} aria-label="Upravit">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        ) : null}
                         {canModify ? (
                           <Button
                             variant="ghost"
@@ -188,15 +191,17 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
         </div>
       )}
 
-      <PatrolDialog
-        open={open}
-        onOpenChange={setOpen}
-        raceId={raceId}
-        categories={categories}
-        patrol={editing}
-        nextStartNumber={patrols.length ? Math.max(...patrols.map((p) => p.start_number)) + 1 : 1}
-        onSaved={() => setOpen(false)}
-      />
+      {canEdit ? (
+        <PatrolDialog
+          open={open}
+          onOpenChange={setOpen}
+          raceId={raceId}
+          categories={categories}
+          patrol={editing}
+          nextStartNumber={patrols.length ? Math.max(...patrols.map((p) => p.start_number)) + 1 : 1}
+          onSaved={() => setOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

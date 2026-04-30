@@ -8,11 +8,13 @@ import type { Patrol, ScoreEntry } from "@/lib/api/types";
 import { useMemo, useState } from "react";
 
 export function PatrolPicker({
+  className,
   patrols,
   entries,
   selectedId,
   onSelect,
 }: {
+  className?: string;
   patrols: Patrol[];
   entries: ScoreEntry[];
   selectedId: string | null;
@@ -43,7 +45,7 @@ export function PatrolPicker({
   const done = filtered.filter((p) => doneIds.has(p.id));
 
   return (
-    <div className="flex flex-col">
+    <div className={cn("flex min-h-0 flex-col", className)}>
       <div className="-mx-3.5 border-b border-scout-border bg-white px-3.5 py-2.5 sm:mx-0 sm:rounded-12 sm:border">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-scout-text-muted" />
@@ -58,7 +60,7 @@ export function PatrolPicker({
         </div>
       </div>
 
-      <div className="max-h-[calc(100vh-154px)] overflow-y-auto py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto py-2">
         <SectionLabel>Čekají na odbavení ({waiting.length})</SectionLabel>
         {waiting.map((p) => (
           <PatrolRow key={p.id} patrol={p} selected={selectedId === p.id} done={false} points={pointsByPatrol.get(p.id) ?? 0} onSelect={onSelect} />

@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, QrCode, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, LogOut, QrCode, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,17 +16,20 @@ import type { Patrol } from "@/lib/api/types";
 import { useEffect, useState } from "react";
 
 type Mode = "pick" | "score";
+type PinExchangeState = "idle" | "pending" | "success" | "error";
 
 export default function StationPage() {
   const params = useParams<{ stationId: string }>();
   const search = useSearchParams();
+  const router = useRouter();
   const qc = useQueryClient();
 
   const stationId = decodeURIComponent(params.stationId);
   const pinFromUrl = search.get("pin");
-  const { mutateAsync: loginStation, isPending: stationLoginPending } = useStationLogin();
+  const { mutateAsync: loginStation } = useStationLogin();
   const [loginToken, setLoginToken] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<unknown>(null);
+  const [pinExchangeState, setPinExchangeState] = useState<PinExchangeState>("idle");
   const loginAttemptedForPin = React.useRef<string | null>(null);
 
   // QR URLs carry only station id + PIN. Exchange them once for a station
@@ -37,6 +40,7 @@ export default function StationPage() {
 
     loginAttemptedForPin.current = loginAttemptKey;
     setLoginError(null);
+    setPinExchangeState("pending");
 
     loginStation({ stationId, pin: pinFromUrl })
       .then((res) => {
@@ -45,16 +49,18 @@ export default function StationPage() {
         qc.invalidateQueries({ queryKey: qk.stationMe });
         qc.invalidateQueries({ queryKey: qk.stationEntries });
         setLoginToken(res.token);
+        setPinExchangeState("success");
       })
       .catch((err) => {
         if (loginAttemptedForPin.current !== loginAttemptKey) return;
         setLoginError(err);
+        setPinExchangeState("error");
       });
   }, [pinFromUrl, loginToken, stationId, loginStation, qc]);
 
   const hasStoredStationToken = !pinFromUrl && Boolean(tokens.get("station"));
   const hasStationToken = Boolean(loginToken || hasStoredStationToken);
-  const exchangingPin = Boolean(pinFromUrl && !loginToken && !loginError);
+  const exchangingPin = pinExchangeState === "pending";
 
   const {
     data: stationMeData,
@@ -67,7 +73,7 @@ export default function StationPage() {
   const [selected, setSelected] = useState<Patrol | null>(null);
   const [mode, setMode] = useState<Mode>("pick");
 
-  const booting = exchangingPin || stationLoginPending || (hasStationToken && stationMeLoading);
+  const booting = exchangingPin || (hasStationToken && stationMeLoading);
   const err = loginError ?? stationMeError;
   const errorMsg = err
     ? err instanceof ApiError && err.status === 401
@@ -83,6 +89,13 @@ export default function StationPage() {
   function refresh() {
     qc.invalidateQueries({ queryKey: qk.stationMe });
     qc.invalidateQueries({ queryKey: qk.stationEntries });
+  }
+
+  function logoutStation() {
+    tokens.clear("station");
+    qc.removeQueries({ queryKey: qk.stationMe });
+    qc.removeQueries({ queryKey: qk.stationEntries });
+    router.replace("/station");
   }
 
   function onSelect(id: string) {
@@ -121,8 +134,8 @@ export default function StationPage() {
   const existingForSelected = selected ? entries.find((e) => e.patrol === selected.id) ?? null : null;
 
   return (
-    <div className="min-h-screen bg-scout-bg-app text-scout-text">
-      <header className="sticky top-0 z-30 bg-scout-blue text-white">
+    <div className="flex h-dvh flex-col overflow-hidden bg-scout-bg-app text-scout-text">
+      <header className="shrink-0 bg-scout-blue text-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             {mode === "score" ? (
@@ -153,14 +166,18 @@ export default function StationPage() {
             <Button variant="ghost" size="icon" onClick={refresh} className="text-white/80 hover:bg-white/10 hover:text-white" aria-label="Obnovit">
               <RefreshCw className="h-4 w-4" />
             </Button>
+            <Button variant="ghost" size="icon" onClick={logoutStation} className="text-white/80 hover:bg-white/10 hover:text-white" aria-label="Odhlásit stanoviště">
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-3.5 py-4 sm:px-6 sm:py-6">
+      <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 overflow-hidden px-3.5 py-4 sm:px-6 sm:py-6">
         {mode === "pick" ? (
-          <div className="space-y-3">
+          <div className="min-h-0 w-full">
             <PatrolPicker
+              className="h-full"
               patrols={payload.patrols}
               entries={entries}
               selectedId={selected?.id ?? null}
@@ -168,13 +185,15 @@ export default function StationPage() {
             />
           </div>
         ) : selected ? (
-          <ScoreForm
-            patrol={selected}
-            criteria={station.criteria.map((c, index) => ({ ...c, id: index }))}
-            existing={existingForSelected}
-            onSaved={onSaved}
-            onCancel={() => { setSelected(null); setMode("pick"); }}
-          />
+          <div className="min-h-0 w-full">
+            <ScoreForm
+              patrol={selected}
+              criteria={station.criteria.map((c, index) => ({ ...c, id: index }))}
+              existing={existingForSelected}
+              onSaved={onSaved}
+              onCancel={() => { setSelected(null); setMode("pick"); }}
+            />
+          </div>
         ) : null}
       </main>
     </div>

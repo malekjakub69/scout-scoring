@@ -80,3 +80,43 @@ export function useReissueStationTokens(id: string) {
     },
   });
 }
+
+export function useRaceMembers(id: string, enabled = true) {
+  return useQuery({
+    queryKey: qk.raceMembers(id),
+    queryFn: () => RacesApi.listRaceMembers(id),
+    enabled,
+  });
+}
+
+export function useShareRace(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { organizer_id: string; role: "read" | "edit" }) =>
+      RacesApi.shareRace(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.raceMembers(id) });
+    },
+  });
+}
+
+export function useUpdateRaceMember(raceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string; role: "read" | "edit" }) =>
+      RacesApi.updateRaceMember(id, role),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.raceMembers(raceId) });
+    },
+  });
+}
+
+export function useDeleteRaceMember(raceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: RacesApi.deleteRaceMember,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.raceMembers(raceId) });
+    },
+  });
+}

@@ -50,7 +50,8 @@ export function OverviewTab({ raceId }: { raceId: string }) {
   const maxEntries = totalPatrols * totalStations;
   const progress = maxEntries > 0 ? Math.round((allEntries / maxEntries) * 100) : 0;
 
-  const hasAction = race.state === "draft" || race.state === "active";
+  const canEdit = race.access_role !== "read";
+  const hasAction = canEdit && (race.state === "draft" || race.state === "active");
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3.5">
@@ -172,7 +173,7 @@ function ActivityFeedCard({ patrols, loading }: { patrols: DashboardPatrolRow[];
 
 function PatrolTableCard({ patrols, totalStations }: { patrols: DashboardPatrolRow[]; totalStations: number }) {
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-12 border border-scout-border bg-white">
+    <section className="flex h-[450px] min-h-0 shrink-0 flex-col overflow-hidden rounded-12 border border-scout-border bg-white">
       <div className="flex shrink-0 items-center justify-between border-b border-scout-border px-4.5 py-3">
         <span className="text-13 font-semibold text-scout-text">Hlídky</span>
         <span className="text-11 text-scout-text-muted">{patrols.length} celkem</span>
@@ -229,12 +230,12 @@ function MiniProgress({ done, total }: { done: number; total: number }) {
 
 function StationsOverviewCard({ stations, totalPatrols }: { stations: DashboardStationRow[]; totalPatrols: number }) {
   return (
-    <section className="shrink-0 rounded-12 border border-scout-border bg-white px-4.5 py-3.5">
-      <div className="mb-3 text-13 font-semibold text-scout-text">Stanoviště — průběh</div>
+    <section className="flex max-h-[450px] shrink-0 flex-col overflow-hidden rounded-12 border border-scout-border bg-white px-4.5 py-3.5">
+      <div className="mb-3 shrink-0 text-13 font-semibold text-scout-text">Stanoviště — průběh</div>
       {stations.length === 0 ? (
         <EmptyState className="border-none bg-transparent py-6" title="Žádná stanoviště" description="V tabu Stanoviště je definuj a pak spusť závod." />
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="grid min-h-0 grid-cols-1 gap-2 overflow-y-auto md:grid-cols-2 xl:grid-cols-3">
           {stations.map((s) => {
             const pct = totalPatrols > 0 ? s.patrols_processed / totalPatrols : 0;
             const tone =
@@ -244,7 +245,7 @@ function StationsOverviewCard({ stations, totalPatrols }: { stations: DashboardS
                   ? "border-scout-station-blue-border bg-scout-station-blue text-scout-blue"
                   : "border-scout-yellow-border bg-scout-yellow-soft text-scout-amber";
             return (
-              <div key={s.id} className={`min-w-[110px] rounded-10 border-1.5 px-3 py-2 ${tone}`}>
+              <div key={s.id} className={`min-w-0 rounded-10 border-1.5 px-3 py-2 ${tone}`}>
                 <div className="mb-1.5 text-12 font-semibold text-scout-text">
                   <span className="text-2xs text-scout-text-muted">#{s.position} </span>{s.name}
                 </div>

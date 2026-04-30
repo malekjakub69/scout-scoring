@@ -34,7 +34,7 @@ defmodule Api.DB.Seed do
     hash = Bcrypt.hash_pwd_salt(pass)
 
     case Api.SurrealDB.one(
-           "CREATE organizer SET email = $email, name = $name, password_hash = $hash;",
+           "CREATE organizer SET email = $email, name = $name, password_hash = $hash, is_admin = true;",
            %{email: email, name: name, hash: hash}
          ) do
       {:ok, organizer} when is_map(organizer) ->

@@ -3,7 +3,7 @@
  * All calls use the station token (short-lived, race-scoped).
  */
 import { apiFetch } from "./client";
-import type { ScoreEntry, StationMePayload } from "./types";
+import type { PublicStationOption, PublicStationRace, ScoreEntry, StationMePayload } from "./types";
 
 interface ListResponse<T> { data: T[] }
 
@@ -21,6 +21,18 @@ export async function loginStation(stationId: string, pin: string): Promise<Stat
     method: "POST",
     body: { station_id: stationId, pin },
   });
+}
+
+export async function listActiveRaces(): Promise<PublicStationRace[]> {
+  const res = await apiFetch<ListResponse<PublicStationRace>>("/api/station/races");
+  return res.data ?? [];
+}
+
+export async function listActiveStations(raceId: string): Promise<PublicStationOption[]> {
+  const res = await apiFetch<ListResponse<PublicStationOption>>(
+    `/api/station/races/${encodeURIComponent(raceId)}/stations`
+  );
+  return res.data ?? [];
 }
 
 export async function getStationMe(tokenOverride?: string): Promise<StationMePayload> {

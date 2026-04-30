@@ -41,6 +41,7 @@ defmodule ApiWeb.RaceController do
   def reissue_tokens(conn, %{"id" => id}) do
     case Races.reissue_station_tokens(id, owner(conn)) do
       {:ok, payload} -> json(conn, payload)
+      {:error, :forbidden} -> conn |> put_status(403) |> json(%{error: "forbidden"})
       _ -> conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
     end
   end

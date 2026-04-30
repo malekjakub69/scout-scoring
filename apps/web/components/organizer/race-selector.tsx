@@ -66,7 +66,7 @@ export function RaceSelector({
     <div className="flex items-center gap-2">
       {races.length > 0 ? (
         <Select value={current?.id ?? undefined} onValueChange={onPick}>
-          <SelectTrigger className="h-8 w-[240px] rounded-8 border border-white/20 bg-white/10 px-3 text-13 font-medium text-white shadow-none data-[placeholder]:text-white/60">
+          <SelectTrigger className="h-8 w-[300px] rounded-8 border border-white/20 bg-white/10 px-3 text-13 font-medium text-white shadow-none data-[placeholder]:text-white/60">
             <SelectValue placeholder="Vyber závod…" />
           </SelectTrigger>
           <SelectContent>

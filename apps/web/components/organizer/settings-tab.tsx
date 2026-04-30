@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleHelp, Plus, X } from "lucide-react";
+import { CircleHelp, Plus, Share2, Trash2, X } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -18,9 +18,17 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { useRace, useUpdateRace } from "@/lib/queries/races";
+import {
+  useDeleteRaceMember,
+  useRace,
+  useRaceMembers,
+  useShareRace,
+  useUpdateRace,
+  useUpdateRaceMember,
+} from "@/lib/queries/races";
 import { usePatrols } from "@/lib/queries/patrols";
 import { useCategories, useCreateCategory, useDeleteCategory } from "@/lib/queries/categories";
+import { useUsers } from "@/lib/queries/auth";
 import { ApiError } from "@/lib/api/client";
 
 const SCORING_OPTIONS = [
@@ -65,6 +73,15 @@ export function SettingsTab({ raceId }: { raceId: string }) {
   const updateRace = useUpdateRace(raceId);
   const createCategory = useCreateCategory(raceId);
   const deleteCategory = useDeleteCategory(raceId);
+  const canManageAccess = race?.access_role === "owner" || race?.access_role === "edit";
+  const { data: usersData } = useUsers(canManageAccess);
+  const { data: membersData } = useRaceMembers(raceId, canManageAccess);
+  const shareRace = useShareRace(raceId);
+  const updateMember = useUpdateRaceMember(raceId);
+  const deleteMember = useDeleteRaceMember(raceId);
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareEmailError, setShareEmailError] = useState<string | null>(null);
+  const [shareRole, setShareRole] = useState<"read" | "edit">("read");
 
   const {
     control,
@@ -132,9 +149,13 @@ export function SettingsTab({ raceId }: { raceId: string }) {
 
   if (!race) return null;
 
-  const readOnly = race.state !== "draft";
+  const currentRace = race;
+  const readOnlyAccess = race.access_role === "read";
+  const readOnly = race.state !== "draft" || readOnlyAccess;
   const categories = categoriesData ?? [];
   const patrols = patrolsData ?? [];
+  const users = usersData ?? [];
+  const members = membersData ?? [];
   const categoryPatrolCounts = patrols.reduce<Record<string, number>>((acc, patrol) => {
     if (patrol.category) {
       acc[patrol.category] = (acc[patrol.category] ?? 0) + 1;
@@ -156,11 +177,69 @@ export function SettingsTab({ raceId }: { raceId: string }) {
     }
   }
 
+  async function onShareRace() {
+    const email = shareEmail.trim().toLowerCase();
+    setShareEmailError(null);
+
+    if (!email) {
+      setShareEmailError("Zadej email organizátora.");
+      return;
+    }
+
+    const organizer = users.find((u) => u.email.toLowerCase() === email);
+
+    if (!organizer) {
+      setShareEmailError("Uživatel s tímto emailem neexistuje.");
+      return;
+    }
+
+    if (organizer.id === currentRace.owner) {
+      setShareEmailError("Tento uživatel je vlastník závodu.");
+      return;
+    }
+
+    if (members.some((m) => m.organizer_id === organizer.id)) {
+      setShareEmailError("Tento uživatel už má k závodu přístup.");
+      return;
+    }
+
+    try {
+      await shareRace.mutateAsync({ organizer_id: organizer.id, role: shareRole });
+      setShareEmail("");
+      setShareRole("read");
+      toast.success("Přístup přidán.");
+    } catch {
+      toast.error("Přístup se nepodařilo uložit.");
+    }
+  }
+
+  async function onChangeMemberRole(id: string, role: "read" | "edit") {
+    try {
+      await updateMember.mutateAsync({ id, role });
+      toast.success("Práva upravena.");
+    } catch {
+      toast.error("Práva se nepodařilo upravit.");
+    }
+  }
+
+  async function onRemoveMember(id: string) {
+    try {
+      await deleteMember.mutateAsync(id);
+      toast.success("Přístup odebrán.");
+    } catch {
+      toast.error("Přístup se nepodařilo odebrat.");
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       {readOnly ? (
         <div className="rounded-12 border border-scout-border bg-white p-4 text-13 text-scout-text-muted">
-          Závod je ve stavu <Badge variant="default" className="mx-1">{race.state}</Badge>. Některá pole jsou uzamčena.
+          {readOnlyAccess ? (
+            <>Máš přístup jen pro čtení. Editace závodu je uzamčena.</>
+          ) : (
+            <>Závod je ve stavu <Badge variant="default" className="mx-1">{race.state}</Badge>. Některá pole jsou uzamčena.</>
+          )}
         </div>
       ) : null}
 
@@ -234,6 +313,74 @@ export function SettingsTab({ raceId }: { raceId: string }) {
           <Button type="submit" disabled={readOnly || updateRace.isPending}>Uložit nastavení</Button>
         </div>
       </form>
+
+      <Separator />
+
+      {canManageAccess ? (
+        <section className="rounded-12 border border-scout-border bg-white p-5">
+          <div className="mb-4">
+            <h2 className="text-16 font-bold text-scout-text">Sdílení závodu</h2>
+            <p className="text-12 text-scout-text-muted">Přidej další organizátory s právy pro čtení nebo editaci.</p>
+          </div>
+
+          <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:items-end">
+            <div className="space-y-2">
+              <Label htmlFor="share-email">Email organizátora</Label>
+              <Input
+                id="share-email"
+                type="email"
+                value={shareEmail}
+                onChange={(e) => {
+                  setShareEmail(e.target.value);
+                  setShareEmailError(null);
+                }}
+                placeholder="organizator@oddil.cz"
+              />
+              <FieldError message={shareEmailError ?? undefined} />
+            </div>
+            <div className="space-y-2">
+              <Label>Práva</Label>
+              <Select value={shareRole} onValueChange={(value) => setShareRole(value as "read" | "edit")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="read">Čtení</SelectItem>
+                  <SelectItem value="edit">Editace</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="button" onClick={onShareRace} disabled={!shareEmail.trim() || shareRace.isPending}>
+              <Share2 className="h-4 w-4" /> Sdílet
+            </Button>
+          </div>
+
+          <div className="divide-y divide-scout-border rounded-8 border border-scout-border">
+            {members.length === 0 ? (
+              <div className="p-3 text-13 text-scout-text-muted">Závod zatím není sdílený.</div>
+            ) : (
+              members.map((m) => (
+                <div key={m.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="truncate text-13 font-semibold text-scout-text">{m.name || "Bez jména"}</div>
+                    <div className="truncate text-12 text-scout-text-muted">{m.email}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={m.role} onValueChange={(value) => onChangeMemberRole(m.id, value as "read" | "edit")}>
+                      <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="read">Čtení</SelectItem>
+                        <SelectItem value="edit">Editace</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => onRemoveMember(m.id)} aria-label="Odebrat přístup">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <Separator />
 

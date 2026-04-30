@@ -18,6 +18,8 @@ defmodule ApiWeb.Router do
 
     get "/health", HealthController, :show
     post "/auth/login", AuthController, :login
+    get "/station/races", StationController, :races
+    get "/station/races/:race_id/stations", StationController, :stations
     post "/station/login", StationController, :login
   end
 
@@ -26,6 +28,13 @@ defmodule ApiWeb.Router do
 
     get "/auth/me", AuthController, :me
     post "/auth/invite", AuthController, :invite
+    get "/auth/users", AuthController, :users
+    post "/auth/users", AuthController, :create_user
+    get "/auth/users/:id", AuthController, :show_user
+    put "/auth/users/:id", AuthController, :update_user
+    delete "/auth/users/:id", AuthController, :delete_user
+    post "/auth/users/:id/reset_password", AuthController, :reset_user_password
+    get "/auth/users/:id/races", AuthController, :user_races
 
     get "/races", RaceController, :index
     post "/races", RaceController, :create
@@ -34,6 +43,10 @@ defmodule ApiWeb.Router do
     post "/races/:id/activate", RaceController, :activate
     post "/races/:id/reissue_tokens", RaceController, :reissue_tokens
     post "/races/:id/close", RaceController, :close
+    get "/races/:race_id/members", RaceMemberController, :index
+    post "/races/:race_id/members", RaceMemberController, :create
+    put "/race-members/:id", RaceMemberController, :update
+    delete "/race-members/:id", RaceMemberController, :delete
 
     get "/races/:race_id/categories", CategoryController, :index
     post "/races/:race_id/categories", CategoryController, :create

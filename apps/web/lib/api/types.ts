@@ -5,6 +5,7 @@ export interface Organizer {
   id: string;
   email: string;
   name?: string;
+  is_admin?: boolean;
 }
 
 export interface LoginResponse {
@@ -17,6 +18,7 @@ export type RaceState = "draft" | "active" | "closed";
 export interface Race {
   id: string;
   name: string;
+  owner?: string;
   date?: string | null;
   location?: string | null;
   state: RaceState;
@@ -24,6 +26,26 @@ export interface Race {
   time_tracking?: "none" | "per_station" | "start_finish" | string;
   created_at?: string;
   updated_at?: string;
+  access_role?: "owner" | "edit" | "read";
+}
+
+export interface RaceMember {
+  id: string;
+  role: "read" | "edit";
+  organizer_id: string;
+  email: string;
+  name?: string;
+}
+
+export interface CreateOrganizerResponse {
+  organizer: Organizer;
+  password: string;
+}
+
+export interface UserRaceAssignment {
+  race_id: string;
+  role: "owner" | "edit" | "read";
+  membership_id?: string | null;
 }
 
 export interface Category {
@@ -61,6 +83,20 @@ export interface Station {
   access_token_hash?: string;
   access_token_raw?: string;
   qr_url?: string; // helper built by BE for Login Cards
+}
+
+export interface PublicStationRace {
+  id: string;
+  name: string;
+  held_on?: string | null;
+  date?: string | null;
+  location?: string | null;
+}
+
+export interface PublicStationOption {
+  id: string;
+  name: string;
+  position: number;
 }
 
 export interface ScoreCriterionValue {

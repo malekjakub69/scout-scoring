@@ -1,23 +1,57 @@
 defmodule Api.Races do
   @moduledoc "Race / Category / Patrol / Station context."
 
-  alias Api.{SurrealDB, Auth.StationToken, AuditLog}
+  alias Api.{SurrealDB, Auth.StationToken, AuditLog, Accounts}
 
   # ---------- Race ----------
 
   def list_races(organizer_id) do
-    SurrealDB.all(
-      "SELECT * FROM race WHERE owner = $owner ORDER BY created_at DESC;",
-      %{owner: organizer_id}
-    )
+    if admin?(organizer_id) do
+      list_all_races_for_admin(organizer_id)
+    else
+      list_accessible_races(organizer_id)
+    end
+  end
+
+  defp list_all_races_for_admin(organizer_id) do
+    with {:ok, races} <- SurrealDB.all("SELECT * FROM race ORDER BY created_at DESC;", %{}) do
+      {:ok, Enum.map(races, &put_access(&1, access_role(&1, organizer_id)))}
+    end
+  end
+
+  defp list_accessible_races(organizer_id) do
+    with {:ok, owned} <-
+           SurrealDB.all(
+             "SELECT * FROM race WHERE owner = $organizer ORDER BY created_at DESC;",
+             %{organizer: organizer_id}
+           ),
+         {:ok, shared} <-
+           SurrealDB.all(
+             """
+             SELECT race, role
+             FROM race_member
+             WHERE organizer = $organizer;
+             """,
+             %{organizer: organizer_id}
+           ) do
+      races =
+        (Enum.map(owned, &put_access(&1, "owner")) ++
+           Enum.flat_map(shared, fn %{"race" => race_id, "role" => role} ->
+             case SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: race_id}) do
+               {:ok, race} when is_map(race) -> [put_access(race, role)]
+               _ -> []
+             end
+           end))
+        |> Enum.uniq_by(& &1["id"])
+        |> Enum.sort_by(&to_string(&1["created_at"]), :desc)
+
+      {:ok, races}
+    end
   end
 
   def get_race(id, organizer_id) do
-    case SurrealDB.one(
-           "SELECT * FROM $id WHERE owner = $owner;",
-           %{id: id, owner: organizer_id}
-         ) do
-      {:ok, race} when is_map(race) -> {:ok, race}
+    case race_access(id, organizer_id) do
+      {:ok, race, role} -> {:ok, put_access(race, role)}
       _ -> {:error, :not_found}
     end
   end
@@ -35,11 +69,17 @@ defmodule Api.Races do
 
     with {:ok, race} <- SurrealDB.one("CREATE race SET #{set};", vars) do
       AuditLog.log("race.create", organizer_id, race["id"], race["id"], %{name: race["name"]})
-      {:ok, race}
+      {:ok, put_access(race, "owner")}
     end
   end
 
   def update_race(id, organizer_id, attrs) do
+    with {:ok, _race} <- ensure_race_edit(id, organizer_id) do
+      do_update_race(id, organizer_id, attrs)
+    end
+  end
+
+  defp do_update_race(id, organizer_id, attrs) do
     {set, vars} =
       SurrealDB.build_set(
         name: attrs["name"],
@@ -49,12 +89,12 @@ defmodule Api.Races do
         time_tracking: attrs["time_tracking"]
       )
 
-    vars = Map.merge(vars, %{id: id, owner: organizer_id})
+    vars = Map.merge(vars, %{id: id})
 
-    case SurrealDB.one("UPDATE $id SET #{set} WHERE owner = $owner;", vars) do
+    case SurrealDB.one("UPDATE $id SET #{set};", vars) do
       {:ok, race} when is_map(race) ->
         AuditLog.log("race.update", organizer_id, id, id, attrs)
-        {:ok, race}
+        get_race(race["id"], organizer_id)
 
       _ ->
         {:error, :not_found}
@@ -62,16 +102,16 @@ defmodule Api.Races do
   end
 
   def activate_race(id, organizer_id) do
-    with {:ok, race} <- get_race(id, organizer_id),
+    with {:ok, race} <- ensure_race_edit(id, organizer_id),
          {:ok, stations} <- list_stations(id, organizer_id),
          {:ok, issued} <- issue_tokens_for(race, stations),
          {:ok, activated_race} <-
            SurrealDB.one(
-             "UPDATE $id SET state = 'active', activated_at = time::now() WHERE owner = $owner;",
-             %{id: id, owner: organizer_id}
+             "UPDATE $id SET state = 'active', activated_at = time::now();",
+             %{id: id}
            ) do
       AuditLog.log("race.activate", organizer_id, id, id, %{})
-      {:ok, Map.put(issued, :race, activated_race)}
+      {:ok, Map.put(issued, :race, put_access(activated_race, race["access_role"]))}
     end
   end
 
@@ -81,7 +121,7 @@ defmodule Api.Races do
   codes — that's the feature, not a bug.
   """
   def reissue_station_tokens(race_id, organizer_id) do
-    with {:ok, race} <- get_race(race_id, organizer_id),
+    with {:ok, race} <- ensure_race_edit(race_id, organizer_id),
          {:ok, stations} <- list_stations(race_id, organizer_id),
          {:ok, issued} <- issue_tokens_for(race, stations) do
       AuditLog.log("race.reissue_tokens", organizer_id, race_id, race_id, %{})
@@ -117,17 +157,99 @@ defmodule Api.Races do
   end
 
   def close_race(id, organizer_id) do
-    sql = "UPDATE $id SET state = 'closed', closed_at = time::now() WHERE owner = $owner;"
+    sql = "UPDATE $id SET state = 'closed', closed_at = time::now();"
 
-    with {:ok, race} when is_map(race) <-
-           SurrealDB.one(sql, %{id: id, owner: organizer_id}) do
+    with {:ok, existing} <- ensure_race_edit(id, organizer_id),
+         {:ok, race} when is_map(race) <- SurrealDB.one(sql, %{id: id}) do
       SurrealDB.query(
         "UPDATE station SET is_active = false WHERE race = $race;",
         %{race: id}
       )
 
       AuditLog.log("race.close", organizer_id, id, id, %{})
-      {:ok, race}
+      {:ok, put_access(race, existing["access_role"])}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def list_race_members(race_id, organizer_id) do
+    with {:ok, race} <- ensure_race_edit(race_id, organizer_id),
+         {:ok, members} <-
+           SurrealDB.all(
+             """
+             SELECT id, role, organizer
+             FROM race_member
+             WHERE race = $race;
+             """,
+             %{race: race_id}
+           ) do
+      members =
+        members
+        |> Enum.reject(&(&1["organizer"] == race["owner"]))
+        |> Enum.map(&with_member_organizer/1)
+        |> Enum.sort_by(&String.downcase(&1["email"] || ""))
+
+      {:ok, members}
+    end
+  end
+
+  def upsert_race_member(race_id, organizer_id, attrs) do
+    member_organizer = attrs["organizer_id"] || attrs["organizer"]
+    role = attrs["role"]
+
+    with true <- role in ["read", "edit"],
+         {:ok, race} <- ensure_race_edit(race_id, organizer_id),
+         false <- race["owner"] == member_organizer do
+      case SurrealDB.one(
+             "SELECT id FROM race_member WHERE race = $race AND organizer = $organizer LIMIT 1;",
+             %{race: race_id, organizer: member_organizer}
+           ) do
+        {:ok, %{"id" => membership_id}} ->
+          update_race_member(membership_id, organizer_id, %{"role" => role})
+
+        {:ok, nil} ->
+          SurrealDB.one(
+            """
+            CREATE race_member SET
+              race = $race,
+              organizer = $organizer,
+              role = $role;
+            """,
+            %{race: race_id, organizer: member_organizer, role: role}
+          )
+
+        err ->
+          err
+      end
+    else
+      false -> {:error, :invalid_member}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def update_race_member(membership_id, organizer_id, %{"role" => role})
+      when role in ["read", "edit"] do
+    with {:ok, member} when is_map(member) <-
+           SurrealDB.one("SELECT * FROM $id;", %{id: membership_id}),
+         {:ok, _race} <- ensure_race_edit(member["race"], organizer_id) do
+      SurrealDB.one(
+        "UPDATE $id SET role = $role, updated_at = time::now();",
+        %{id: membership_id, role: role}
+      )
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def update_race_member(_, _, _), do: {:error, :invalid_role}
+
+  def delete_race_member(membership_id, organizer_id) do
+    with {:ok, member} when is_map(member) <-
+           SurrealDB.one("SELECT * FROM $id;", %{id: membership_id}),
+         {:ok, _race} <- ensure_race_edit(member["race"], organizer_id),
+         {:ok, _} <- SurrealDB.query("DELETE $id;", %{id: membership_id}) do
+      {:ok, :deleted}
     else
       _ -> {:error, :not_found}
     end
@@ -145,7 +267,7 @@ defmodule Api.Races do
   end
 
   def create_category(race_id, organizer_id, attrs) do
-    with {:ok, _} <- get_race(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
       SurrealDB.one(
         "CREATE category SET race = $race, name = $name, scored = $scored;",
         %{race: race_id, name: attrs["name"], scored: attrs["scored"] != false}
@@ -155,10 +277,8 @@ defmodule Api.Races do
 
   def delete_category(id, organizer_id) do
     with {:ok, category} when is_map(category) <-
-           SurrealDB.one(
-             "SELECT * FROM $id WHERE race.owner = $owner LIMIT 1;",
-             %{id: id, owner: organizer_id}
-           ),
+           SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}),
+         {:ok, _race} <- ensure_race_edit(category["race"], organizer_id),
          {:ok, nil} <-
            SurrealDB.one(
              "SELECT id FROM patrol WHERE category = $category LIMIT 1;",
@@ -196,8 +316,32 @@ defmodule Api.Races do
     )
   end
 
+  def list_active_races_public do
+    SurrealDB.all(
+      """
+      SELECT id, name, held_on, location, created_at
+      FROM race
+      WHERE state = 'active'
+      ORDER BY held_on DESC, created_at DESC;
+      """,
+      %{}
+    )
+  end
+
+  def list_active_stations_public(race_id) do
+    SurrealDB.all(
+      """
+      SELECT id, name, position
+      FROM station
+      WHERE race = $race AND race.state = 'active' AND is_active = true
+      ORDER BY position, name;
+      """,
+      %{race: race_id}
+    )
+  end
+
   def create_patrol(race_id, organizer_id, attrs) do
-    with {:ok, _} <- get_race(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
       sql = """
       CREATE patrol SET
         race = $race,
@@ -218,7 +362,7 @@ defmodule Api.Races do
   end
 
   def bulk_create_patrols(race_id, organizer_id, patrols) when is_list(patrols) do
-    with {:ok, _} <- get_race(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
       results =
         Enum.map(patrols, fn attrs ->
           case create_patrol(race_id, organizer_id, attrs) do
@@ -242,18 +386,26 @@ defmodule Api.Races do
   end
 
   def update_patrol(id, organizer_id, attrs) do
+    with {:ok, patrol} when is_map(patrol) <-
+           SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}),
+         {:ok, _race} <- ensure_race_edit(patrol["race"], organizer_id) do
+      do_update_patrol(id, attrs)
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp do_update_patrol(id, attrs) do
     sql = """
     UPDATE $id SET
       category = $category,
       start_number = $start_number,
       name = $name,
       members = $members
-    WHERE race.owner = $owner;
     """
 
     SurrealDB.one(sql, %{
       id: id,
-      owner: organizer_id,
       category: attrs["category"],
       start_number: attrs["start_number"],
       name: attrs["name"],
@@ -263,10 +415,8 @@ defmodule Api.Races do
 
   def delete_patrol(id, organizer_id) do
     with {:ok, patrol} when is_map(patrol) <-
-           SurrealDB.one(
-             "SELECT id FROM $id WHERE race.owner = $owner LIMIT 1;",
-             %{id: id, owner: organizer_id}
-           ),
+           SurrealDB.one("SELECT id, race FROM $id LIMIT 1;", %{id: id}),
+         {:ok, _race} <- ensure_race_edit(patrol["race"], organizer_id),
          {:ok, _} <- SurrealDB.query("DELETE $id;", %{id: patrol["id"]}) do
       {:ok, :deleted}
     else
@@ -287,7 +437,7 @@ defmodule Api.Races do
   end
 
   def create_station(race_id, organizer_id, attrs) do
-    with {:ok, _} <- get_race(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
       sql = """
       CREATE station SET
         race = $race,
@@ -306,7 +456,7 @@ defmodule Api.Races do
   end
 
   def bulk_create_stations(race_id, organizer_id, stations) when is_list(stations) do
-    with {:ok, _} <- get_race(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
       results =
         Enum.map(stations, fn attrs ->
           case create_station(race_id, organizer_id, attrs) do
@@ -330,17 +480,25 @@ defmodule Api.Races do
   end
 
   def update_station(id, organizer_id, attrs) do
+    with {:ok, station} when is_map(station) <-
+           SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}),
+         {:ok, _race} <- ensure_race_edit(station["race"], organizer_id) do
+      do_update_station(id, attrs)
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp do_update_station(id, attrs) do
     sql = """
     UPDATE $id SET
       name = $name,
       position = $position,
       criteria = $criteria
-    WHERE race.owner = $owner;
     """
 
     SurrealDB.one(sql, %{
       id: id,
-      owner: organizer_id,
       name: attrs["name"],
       position: attrs["position"] || 0,
       criteria: attrs["criteria"] || []
@@ -348,12 +506,18 @@ defmodule Api.Races do
   end
 
   def deactivate_station(id, organizer_id) do
-    sql = "UPDATE $id SET is_active = false, access_token_hash = NONE WHERE race.owner = $owner;"
+    sql = "UPDATE $id SET is_active = false, access_token_hash = NONE;"
 
-    case SurrealDB.one(sql, %{id: id, owner: organizer_id}) do
-      {:ok, station} when is_map(station) -> {:ok, station}
-      {:ok, nil} -> {:error, :not_found}
-      err -> err
+    with {:ok, station} when is_map(station) <-
+           SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}),
+         {:ok, _race} <- ensure_race_edit(station["race"], organizer_id) do
+      case SurrealDB.one(sql, %{id: id}) do
+        {:ok, station} when is_map(station) -> {:ok, station}
+        {:ok, nil} -> {:error, :not_found}
+        err -> err
+      end
+    else
+      _ -> {:error, :not_found}
     end
   end
 
@@ -366,18 +530,25 @@ defmodule Api.Races do
       access_token_hash = $nonce,
       pin = $pin,
       is_active = true
-    WHERE race.owner = $owner AND race.state = 'active';
+    WHERE race.state = 'active';
     """
 
-    case SurrealDB.one(sql, %{id: id, owner: organizer_id, pin: pin, nonce: nonce}) do
-      {:ok, station} when is_map(station) ->
-        {:ok, Map.put(station, "qr_url", "#{web_base_url()}/station/#{station["id"]}?pin=#{pin}")}
+    with {:ok, station} when is_map(station) <-
+           SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}),
+         {:ok, _race} <- ensure_race_edit(station["race"], organizer_id) do
+      case SurrealDB.one(sql, %{id: id, pin: pin, nonce: nonce}) do
+        {:ok, station} when is_map(station) ->
+          {:ok,
+           Map.put(station, "qr_url", "#{web_base_url()}/station/#{station["id"]}?pin=#{pin}")}
 
-      {:ok, nil} ->
-        {:error, :not_found}
+        {:ok, nil} ->
+          {:error, :not_found}
 
-      err ->
-        err
+        err ->
+          err
+      end
+    else
+      _ -> {:error, :not_found}
     end
   end
 
@@ -406,4 +577,58 @@ defmodule Api.Races do
   end
 
   def authenticate_station_pin(_id, _pin), do: {:error, :invalid_pin}
+
+  defp ensure_race_edit(race_id, organizer_id) do
+    case race_access(race_id, organizer_id) do
+      {:ok, race, role} when role in ["owner", "edit"] -> {:ok, put_access(race, role)}
+      {:ok, _race, "read"} -> {:error, :forbidden}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp race_access(race_id, organizer_id) do
+    with {:ok, race} when is_map(race) <-
+           SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: race_id}) do
+      cond do
+        race["owner"] == organizer_id ->
+          {:ok, race, "owner"}
+
+        admin?(organizer_id) ->
+          {:ok, race, "edit"}
+
+        true ->
+          case SurrealDB.one(
+                 "SELECT role FROM race_member WHERE race = $race AND organizer = $organizer LIMIT 1;",
+                 %{race: race_id, organizer: organizer_id}
+               ) do
+            {:ok, %{"role" => role}} when role in ["read", "edit"] -> {:ok, race, role}
+            _ -> {:error, :not_found}
+          end
+      end
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp put_access(race, role) when is_map(race), do: Map.put(race, "access_role", role)
+
+  defp access_role(%{"owner" => organizer_id}, organizer_id), do: "owner"
+  defp access_role(_race, _organizer_id), do: "edit"
+
+  defp admin?(organizer_id) do
+    case Accounts.get_organizer(organizer_id) do
+      %{"is_admin" => true} -> true
+      _ -> false
+    end
+  end
+
+  defp with_member_organizer(%{"organizer" => organizer_id} = member) do
+    organizer = Accounts.get_organizer(organizer_id) || %{}
+
+    member
+    |> Map.put("organizer_id", organizer_id)
+    |> Map.put("email", organizer["email"])
+    |> Map.put("name", organizer["name"])
+    |> Map.delete("organizer")
+  end
 end
