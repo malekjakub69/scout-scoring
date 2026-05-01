@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { extractStationsFromDocument, refineStations } from "@/lib/api/ai-import";
 import type {
   AiImportQuestion,
@@ -261,6 +262,17 @@ export function AiImportDialog({
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+                      <Label htmlFor={`ai-half-points-${i}`} className="text-sm">
+                        Povolit půlbody
+                      </Label>
+                      <Switch
+                        id={`ai-half-points-${i}`}
+                        checked={s.allow_half_points === true}
+                        onCheckedChange={(checked) => updateStation(i, { allow_half_points: checked })}
+                        aria-label="Povolit půlbody"
+                      />
+                    </div>
                     <div className="mt-3 space-y-2">
                       {s.criteria.map((c, ci) => (
                         <div key={ci} className="grid grid-cols-[1fr,100px,36px] gap-2">
@@ -272,6 +284,7 @@ export function AiImportDialog({
                           <Input
                             type="number"
                             min={0}
+                            step={s.allow_half_points ? 0.5 : 1}
                             value={c.max_points}
                             onChange={(e) => updateCriterion(i, ci, { max_points: Number(e.target.value) })}
                             aria-label="Max bodů"

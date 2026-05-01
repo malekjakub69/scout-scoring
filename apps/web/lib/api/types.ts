@@ -76,6 +76,7 @@ export interface Station {
   race?: string;
   name: string;
   position: number;
+  allow_half_points?: boolean;
   criteria: StationCriterion[];
   is_active: boolean;
   pin?: string;
@@ -165,6 +166,7 @@ export interface StationMePayload {
   station: {
     id: string;
     name: string;
+    allow_half_points?: boolean;
     criteria: StationCriterion[];
     race: string;
   };
@@ -181,6 +183,7 @@ export interface ActivationPayload {
 export interface AiImportStationDraft {
   name: string;
   position: number;
+  allow_half_points?: boolean;
   criteria: StationCriterion[];
 }
 

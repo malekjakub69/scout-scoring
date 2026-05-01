@@ -125,6 +125,12 @@ export default function StationPage() {
           icon={<QrCode className="h-6 w-6" />}
           title="Přístup se nezdařil"
           description={errorMsg ?? "Neznámá chyba."}
+          action={
+            <Button onClick={logoutStation}>
+              <ArrowLeft className="h-4 w-4" />
+              Zpět na přihlášení
+            </Button>
+          }
         />
       </div>
     );
@@ -173,7 +179,7 @@ export default function StationPage() {
         </div>
       </header>
 
-      <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 overflow-hidden px-3.5 py-4 sm:px-6 sm:py-6">
+      <main className="mx-auto min-h-0 w-full max-w-4xl flex-1 overflow-y-auto px-3.5 py-4 sm:px-6 sm:py-6">
         {mode === "pick" ? (
           <div className="min-h-0 w-full">
             <PatrolPicker
@@ -189,6 +195,7 @@ export default function StationPage() {
             <ScoreForm
               patrol={selected}
               criteria={station.criteria.map((c, index) => ({ ...c, id: index }))}
+              allowHalfPoints={station.allow_half_points === true}
               existing={existingForSelected}
               onSaved={onSaved}
               onCancel={() => { setSelected(null); setMode("pick"); }}

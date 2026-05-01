@@ -47,7 +47,7 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
   const patrols = patrolsData ?? [];
   const categories = categoriesData ?? [];
   const canModify = race?.state === "draft" && race.access_role !== "read";
-  const canEdit = race?.access_role !== "read";
+  const canEdit = canModify;
 
   function openNew() {
     setEditing(null);
@@ -112,7 +112,7 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
           </div>
         ) : race ? (
           <p className="text-12 text-scout-text-muted">
-            Závod je {race.state === "active" ? "spuštěný" : "uzavřený"} — lze už jen upravovat.
+            Závod je {race.state === "active" ? "spuštěný" : "uzavřený"} — hlídky už nejdou upravovat.
           </p>
         ) : null}
       </div>
@@ -291,7 +291,7 @@ function PatrolDialog({
           <div className="space-y-2">
             <Label>Kategorie</Label>
             <Select value={category || undefined} onValueChange={setCategory}>
-              <SelectTrigger>
+              <SelectTrigger className="h-10 rounded-10 border-1.5 border-scout-border bg-white text-14 text-scout-text shadow-sm">
                 <SelectValue placeholder="Bez kategorie" />
               </SelectTrigger>
               <SelectContent>

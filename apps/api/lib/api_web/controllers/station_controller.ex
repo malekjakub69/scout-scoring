@@ -61,6 +61,7 @@ defmodule ApiWeb.StationController do
       station: %{
         id: station["id"],
         name: station["name"],
+        allow_half_points: station["allow_half_points"] == true,
         criteria: station["criteria"],
         race: race_id
       },

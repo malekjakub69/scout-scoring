@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberStepperInput } from "@/components/ui/number-stepper-input";
 import { Switch } from "@/components/ui/switch";
 import { useUpsertScoreEntry } from "@/lib/queries/station";
 import type { Patrol, ScoreEntry, StationCriterion } from "@/lib/api/types";
@@ -17,6 +18,7 @@ import { ApiError } from "@/lib/api/client";
 interface Props {
   patrol: Patrol;
   criteria: StationCriterion[];
+  allowHalfPoints?: boolean;
   existing: ScoreEntry | null;
   onSaved: () => void;
   onCancel: () => void;
@@ -34,7 +36,7 @@ const timeFieldSchema = z
   .regex(/^\d{2}:\d{2}$/, "Zadej čas ve formátu HH:MM.")
   .or(z.literal(""));
 
-function createScoreFormSchema(criteria: StationCriterion[]) {
+function createScoreFormSchema(criteria: StationCriterion[], allowHalfPoints: boolean) {
   return z
     .object({
       points: z.record(z.string()),
@@ -66,14 +68,23 @@ function createScoreFormSchema(criteria: StationCriterion[]) {
             path: ["points", fieldKey],
             message: `Zadej hodnotu 0 až ${criterion.max_points}.`,
           });
+          continue;
+        }
+
+        if (!hasValidIncrement(parsed, allowHalfPoints)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["points", fieldKey],
+            message: allowHalfPoints ? "Zadej celé číslo nebo půl bodu." : "Zadej celé body.",
+          });
         }
       }
     });
 }
 
-export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Props) {
+export function ScoreForm({ patrol, criteria, allowHalfPoints = false, existing, onSaved, onCancel }: Props) {
   const upsert = useUpsertScoreEntry();
-  const schema = useMemo(() => createScoreFormSchema(criteria), [criteria]);
+  const schema = useMemo(() => createScoreFormSchema(criteria, allowHalfPoints), [allowHalfPoints, criteria]);
   const {
     formState,
     handleSubmit,
@@ -108,7 +119,7 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
     try {
       const scoresPayload = criteria.map((c, index) => ({
         criterion: c.name,
-        points: clamp(Number(values.points[criterionFieldKey(c, index)]) || 0, 0, c.max_points),
+        points: clamp(normalizePointsValue(values.points[criterionFieldKey(c, index)], allowHalfPoints), 0, c.max_points),
       }));
 
       const today = new Date().toISOString().slice(0, 10);
@@ -130,7 +141,7 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="-mx-3.5 flex min-h-[calc(100vh-120px)] flex-col sm:mx-0">
+    <form onSubmit={handleSubmit(onSubmit)} className="-mx-3.5 sm:mx-0">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-3.5 sm:px-0">
         <div>
           <div className="text-12 text-scout-text-muted">
@@ -146,26 +157,27 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
         ) : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3.5 sm:px-0">
+      <div className="px-3.5 sm:px-0">
         <div className="space-y-3">
-        {criteria.map((criterion, index) => {
-          const fieldKey = criterionFieldKey(criterion, index);
-          return (
-          <CriterionRow
-            key={fieldKey}
-            inputId={`crit-${fieldKey}`}
-            criterion={criterion}
-            value={watchedPoints?.[fieldKey] ?? "0"}
-            onChange={(value) =>
-              setValue(`points.${fieldKey}`, String(value), {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-            error={formState.errors.points?.[fieldKey]?.message}
-          />
-          );
-        })}
+          {criteria.map((criterion, index) => {
+            const fieldKey = criterionFieldKey(criterion, index);
+            return (
+              <CriterionRow
+                key={fieldKey}
+                inputId={`crit-${fieldKey}`}
+                criterion={criterion}
+                allowHalfPoints={allowHalfPoints}
+                value={watchedPoints?.[fieldKey] ?? "0"}
+                onChange={(value) =>
+                  setValue(`points.${fieldKey}`, String(value), {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                error={formState.errors.points?.[fieldKey]?.message}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -192,7 +204,7 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
         ) : null}
       </div>
 
-      <div className="sticky bottom-0 mt-4 flex items-center gap-3 border-t-1.5 border-scout-border bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="mx-3.5 mt-4 flex items-center gap-3 border-t-1.5 border-scout-border bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mx-0">
         <div className="min-w-0 flex-1">
           <div className="text-11 text-scout-text-muted">Celkem bodů</div>
           <div className="text-26 font-bold leading-none tabular-nums text-scout-text">
@@ -214,60 +226,39 @@ export function ScoreForm({ patrol, criteria, existing, onSaved, onCancel }: Pro
 function CriterionRow({
   inputId,
   criterion,
+  allowHalfPoints,
   value,
   onChange,
   error,
 }: {
   inputId: string;
   criterion: StationCriterion;
+  allowHalfPoints: boolean;
   value: string;
   onChange: (value: number) => void;
   error?: string;
 }) {
-  const max = Math.max(0, Math.round(criterion.max_points || 0));
+  const max = Math.max(0, Number(criterion.max_points) || 0);
   const current = clamp(Number(value) || 0, 0, max);
-  const percent = max > 0 ? (current / max) * 100 : 0;
-  const tickValues = createTickValues(max);
 
   return (
     <div className={`mb-3 rounded-12 border bg-white p-4 ${error ? "border-destructive" : "border-scout-border"}`}>
-      <div className="mb-7 flex items-baseline justify-between gap-3">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
         <Label htmlFor={inputId} className="text-16 font-semibold text-scout-text">
           {criterion.name}
         </Label>
         <span className="shrink-0 text-12 text-scout-text-muted">max {max} b.</span>
       </div>
 
-      <div className="relative h-12">
-        <div className="absolute left-0 right-0 top-1/2 h-2.5 -translate-y-1/2 overflow-hidden rounded-full border border-scout-border bg-scout-bg-app">
-          <div className="h-full rounded-full bg-scout-blue" style={{ width: `${percent}%` }} />
-        </div>
-        <div
-          className="pointer-events-none absolute top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full border-[3px] border-white bg-scout-blue text-white shadow-slider-thumb transition-[left] duration-100"
-          style={{ left: `calc(${percent}% - ${(percent / 100) * 48}px)` }}
-        >
-          <span className="text-18 font-bold tabular-nums">{current}</span>
-        </div>
-        <input
-          id={inputId}
-          type="range"
-          min={0}
-          max={max}
-          step={1}
-          value={current}
-          onChange={(event) => onChange(Number(event.target.value))}
-          className="absolute inset-0 z-20 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
-          aria-label={criterion.name}
-          aria-valuetext={`${current} z ${max} bodů`}
-        />
-      </div>
-      <div className="mt-3 px-[12px] flex justify-between text-11 text-scout-text-muted">
-          {Array.from({ length: max + 1 }, (_, i) => i).map((tick) => (
-            <span key={tick} className="tabular-nums w-[20px] text-center">
-              {tick}
-            </span>
-          ))}
-      </div>
+      <NumberStepperInput
+        id={inputId}
+        max={max}
+        halfStep={allowHalfPoints}
+        value={current}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-label={criterion.name}
+        aria-valuetext={`${current} z ${max} bodů`}
+      />
       <FieldError message={error} />
     </div>
   );
@@ -307,11 +298,17 @@ function clamp(v: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, v));
 }
 
-function createTickValues(max: number) {
-  if (max <= 0) return [0];
+function hasValidIncrement(value: number, allowHalfPoints: boolean) {
+  const multiplier = allowHalfPoints ? 2 : 1;
+  return Number.isInteger(value * multiplier);
+}
 
-  const raw = [0, Math.round(max * 0.25), Math.round(max * 0.5), Math.round(max * 0.75), max];
-  return Array.from(new Set(raw));
+function normalizePointsValue(value: string | undefined, allowHalfPoints: boolean) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+
+  const multiplier = allowHalfPoints ? 2 : 1;
+  return Math.round(parsed * multiplier) / multiplier;
 }
 
 function formatCategory(category?: string | null) {

@@ -18,6 +18,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useRace, useReissueStationTokens } from "@/lib/queries/races";
 import {
   useStations,
@@ -50,14 +51,19 @@ export function StationsTab({ raceId }: { raceId: string }) {
   const stations = stationsData ?? [];
   const canModify = race?.state === "draft" && race.access_role !== "read";
   const canEdit = race?.access_role !== "read";
+  const canEditDefinition = canModify;
 
-  async function onDeactivate(s: Station) {
-    if (!confirm(`Deaktivovat stanoviště ${s.name}? Rozhodčí se už nedostanou dál.`)) return;
+  async function onToggleActive(s: Station) {
+    const message = s.is_active
+      ? `Deaktivovat stanoviště ${s.name}? Rozhodčí se už nedostanou dál.`
+      : `Aktivovat stanoviště ${s.name}? Rozhodčí se budou moci znovu přihlásit.`;
+    if (!confirm(message)) return;
+
     try {
       await deactivate.mutateAsync(s.id);
-      toast.success("Deaktivováno.");
+      toast.success(s.is_active ? "Deaktivováno." : "Aktivováno.");
     } catch {
-      toast.error("Nepodařilo se deaktivovat.");
+      toast.error(s.is_active ? "Nepodařilo se deaktivovat." : "Nepodařilo se aktivovat.");
     }
   }
 
@@ -81,7 +87,7 @@ export function StationsTab({ raceId }: { raceId: string }) {
       <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-18 font-bold text-scout-text">Stanoviště</h2>
-          <p className="text-12 text-scout-text-muted">Kritéria bodování konfiguruješ per stanoviště.</p>
+          <p className="text-12 text-scout-text">Kritéria bodování konfiguruješ per stanoviště.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setCardsOpen(true)} disabled={stations.length === 0}>
@@ -139,6 +145,7 @@ export function StationsTab({ raceId }: { raceId: string }) {
                     <div className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-0.6 text-scout-text-muted">
                       #{s.position}
                       {s.is_active ? <Badge variant="default">Aktivní</Badge> : <Badge variant="muted">Neaktivní</Badge>}
+                      {s.allow_half_points ? <Badge variant="secondary">0,5 b.</Badge> : null}
                     </div>
                     <div className="mt-1 truncate text-16 font-bold text-scout-text">{s.name}</div>
                     <div className="mt-1 text-12 text-scout-text-muted">
@@ -150,9 +157,11 @@ export function StationsTab({ raceId }: { raceId: string }) {
                   <div className="flex gap-1">
                     {canEdit ? (
                       <>
-                        <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setDialogOpen(true); }} aria-label="Upravit">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        {canEditDefinition ? (
+                          <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setDialogOpen(true); }} aria-label="Upravit">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        ) : null}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -163,7 +172,13 @@ export function StationsTab({ raceId }: { raceId: string }) {
                         >
                           <RefreshCw className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onDeactivate(s)} aria-label="Deaktivovat">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onToggleActive(s)}
+                          aria-label={s.is_active ? "Deaktivovat" : "Aktivovat"}
+                          title={s.is_active ? "Deaktivovat" : "Aktivovat"}
+                        >
                           <Power className="h-4 w-4" />
                         </Button>
                       </>
@@ -179,9 +194,9 @@ export function StationsTab({ raceId }: { raceId: string }) {
                     </summary>
                     <div className="mt-3 space-y-1">
                       {s.criteria!.map((c, i) => (
-                        <div key={i} className="flex items-center justify-between text-13 text-scout-text">
+                        <div key={i} className="flex items-center justify-between text-13 text-scout-text border-b border-dashed border-scout-border pb-[1px]">
                           <span>{c.name}</span>
-                          <span className="tabular-nums text-scout-text-muted">{c.max_points} b.</span>
+                          <span className="tabular-nums text-scout-text-muted text-center min-w-[40px]">{c.max_points} b.</span>
                         </div>
                       ))}
                     </div>
@@ -207,7 +222,7 @@ export function StationsTab({ raceId }: { raceId: string }) {
         </div>
       )}
 
-      {canEdit ? (
+      {canEditDefinition ? (
         <StationDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
@@ -258,11 +273,13 @@ function StationDialog({
   const createStation = useCreateStation(raceId);
   const updateStation = useUpdateStation(raceId);
   const [name, setName] = useState("");
+  const [allowHalfPoints, setAllowHalfPoints] = useState(false);
   const [criteria, setCriteria] = useState<StationCriterion[]>([{ name: "", max_points: 10 }]);
 
   useEffect(() => {
     if (open) {
       setName(station?.name ?? "");
+      setAllowHalfPoints(station?.allow_half_points === true);
       setCriteria(station?.criteria?.length ? station.criteria : [{ name: "", max_points: 10 }]);
     }
   }, [open, station]);
@@ -288,6 +305,7 @@ function StationDialog({
       const payload = {
         name,
         position: station ? station.position : nextPosition,
+        allow_half_points: allowHalfPoints,
         criteria: cleaned,
       };
       if (station) await updateStation.mutateAsync({ id: station.id, data: payload });
@@ -301,50 +319,66 @@ function StationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="flex max-h-[90vh] max-w-xl grid-rows-none flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{station ? "Upravit stanoviště" : "Nové stanoviště"}</DialogTitle>
           <DialogDescription>Kritéria se na stanovišti zobrazí rozhodčímu jako formulář.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="sname">
-              Název
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                Pořadí #{station ? station.position : nextPosition}
-              </span>
-            </Label>
-            <Input id="sname" required value={name} onChange={(e) => setName(e.target.value)} placeholder="První pomoc" />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Kritéria bodování</Label>
-              <Button type="button" variant="ghost" size="sm" onClick={addCriterion}>
-                <Plus className="h-4 w-4" /> Přidat
-              </Button>
-            </div>
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
+          <div className="-mx-1 max-h-[calc(90vh-180px)] space-y-5 overflow-y-auto overscroll-contain px-1 pr-2">
             <div className="space-y-2">
-              {criteria.map((c, i) => (
-                <div key={i} className="grid grid-cols-[1fr,100px,36px] gap-2">
-                  <Input value={c.name} onChange={(e) => updateCriterion(i, { name: e.target.value })} placeholder="Resuscitace" />
-                  <Input
-                    type="number"
-                    min={0}
-                    value={c.max_points}
-                    onChange={(e) => updateCriterion(i, { max_points: Number(e.target.value) })}
-                    aria-label="Max bodů"
-                  />
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeCriterion(i)} aria-label="Odebrat">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+              <Label htmlFor="sname">
+                Název
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  Pořadí #{station ? station.position : nextPosition}
+                </span>
+              </Label>
+              <Input id="sname" required value={name} onChange={(e) => setName(e.target.value)} placeholder="První pomoc" />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-scout-border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="allow-half-points">Povolit půlbody</Label>
+                <p className="text-12 text-scout-text-muted">Rozhodčí může zadávat body po 0,5.</p>
+              </div>
+              <Switch
+                id="allow-half-points"
+                checked={allowHalfPoints}
+                onCheckedChange={setAllowHalfPoints}
+                aria-label="Povolit půlbody"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Kritéria bodování</Label>
+                <Button type="button" variant="ghost" size="sm" onClick={addCriterion}>
+                  <Plus className="h-4 w-4" /> Přidat
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {criteria.map((c, i) => (
+                  <div key={i} className="grid grid-cols-[1fr,100px,36px] gap-2">
+                    <Input value={c.name} onChange={(e) => updateCriterion(i, { name: e.target.value })} placeholder="Resuscitace" />
+                    <Input
+                      type="number"
+                      min={0}
+                      step={allowHalfPoints ? 0.5 : 1}
+                      value={c.max_points}
+                      onChange={(e) => updateCriterion(i, { max_points: Number(e.target.value) })}
+                      aria-label="Max bodů"
+                    />
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeCriterion(i)} aria-label="Odebrat">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t border-scout-border pt-4">
             <Button type="submit" disabled={submitting}>{station ? "Uložit" : "Vytvořit"}</Button>
           </DialogFooter>
         </form>
@@ -375,7 +409,6 @@ function LoginCardsDialog({
   const reissue = useReissueStationTokens(raceId);
   const [issued, setIssued] = useState<Record<string, { qr_url?: string; pin?: string }>>({});
   const [mounted, setMounted] = useState(false);
-  const autoIssuedForOpen = React.useRef(false);
 
   const issue = useCallback(async () => {
     try {
@@ -393,18 +426,6 @@ function LoginCardsDialog({
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (!open) {
-      autoIssuedForOpen.current = false;
-      return;
-    }
-
-    if (canReissue && raceState !== "draft" && !autoIssuedForOpen.current) {
-      autoIssuedForOpen.current = true;
-      void issue();
-    }
-  }, [canReissue, open, raceState, issue]);
 
   function onPrint() {
     window.print();

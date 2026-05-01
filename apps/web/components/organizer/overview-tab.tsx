@@ -162,7 +162,7 @@ function ActivityFeedCard({ patrols, loading }: { patrols: DashboardPatrolRow[];
                 <span className="text-12 text-scout-text-muted"> · {p.stations_done} stanovišť</span>
               </div>
               <span className="shrink-0 text-13 font-bold tabular-nums text-scout-blue">{p.total_points} b.</span>
-              <span className="w-12.5 shrink-0 text-right text-11 text-scout-text-muted">{fromNowFormat(p.last_activity)}</span>
+              <span className="w-12.5 shrink-0 text-right text-11 text-scout-text">{fromNowFormat(p.last_activity)}</span>
             </div>
           ))
         )}
@@ -201,7 +201,7 @@ function PatrolTableCard({ patrols, totalStations }: { patrols: DashboardPatrolR
                   <td className="px-3 py-2.25 text-13 font-semibold text-scout-text">{p.name}</td>
                   <td className="px-3 py-2.25 text-right"><MiniProgress done={p.stations_done} total={totalStations} /></td>
                   <td className="px-3 py-2.25 text-right text-14 font-bold tabular-nums text-scout-text">{p.total_points}</td>
-                  <td className="px-3 py-2.25 text-right text-11 text-scout-text-muted">{fromNowFormat(p.last_activity)}</td>
+                  <td className="px-3 py-2.25 text-right text-11 text-scout-text">{fromNowFormat(p.last_activity)}</td>
                 </tr>
               ))}
             </tbody>

@@ -2,6 +2,7 @@ defmodule ApiWeb.StationAdminController do
   @moduledoc "Organizer-facing station management (create / edit / deactivate)."
   use ApiWeb, :controller
   alias Api.Races
+  require Logger
 
   defp owner(conn), do: conn.assigns.organizer["id"]
 
@@ -15,6 +16,7 @@ defmodule ApiWeb.StationAdminController do
   def create(conn, %{"race_id" => rid} = params) do
     case Races.create_station(rid, owner(conn), params) do
       {:ok, s} -> conn |> put_status(201) |> json(s)
+      {:error, :race_not_draft} -> conn |> put_status(409) |> json(%{error: "race_not_draft"})
       _ -> conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
     end
   end
@@ -27,6 +29,9 @@ defmodule ApiWeb.StationAdminController do
       {:partial, report} ->
         conn |> put_status(207) |> json(report)
 
+      {:error, :race_not_draft} ->
+        conn |> put_status(409) |> json(%{error: "race_not_draft"})
+
       _ ->
         conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
     end
@@ -36,16 +41,44 @@ defmodule ApiWeb.StationAdminController do
 
   def update(conn, %{"id" => id} = params) do
     case Races.update_station(id, owner(conn), params) do
-      {:ok, s} -> json(conn, s)
-      _ -> conn |> put_status(404) |> json(%{error: "not_found"})
+      {:ok, s} ->
+        json(conn, s)
+
+      {:error, :forbidden} ->
+        conn |> put_status(403) |> json(%{error: "forbidden"})
+
+      {:error, :race_not_draft} ->
+        conn |> put_status(409) |> json(%{error: "race_not_draft"})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "not_found"})
+
+      {:error, {:surreal, reason}} ->
+        Logger.error("Station deactivate surreal error for #{id}: #{inspect(reason)}")
+        conn |> put_status(422) |> json(%{error: "surreal_error", reason: reason})
+
+      other ->
+        Logger.error("Station deactivate failed for #{id}: #{inspect(other)}")
+        conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
     end
   end
 
   def deactivate(conn, %{"id" => id}) do
     case Races.deactivate_station(id, owner(conn)) do
-      {:ok, _station} -> send_resp(conn, 204, "")
-      {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not_found"})
-      _ -> conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
+      {:ok, _station} ->
+        send_resp(conn, 204, "")
+
+      {:error, :forbidden} ->
+        conn |> put_status(403) |> json(%{error: "forbidden"})
+
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "not_found"})
+
+      {:error, {:surreal, reason}} ->
+        conn |> put_status(422) |> json(%{error: "surreal_error", reason: reason})
+
+      _ ->
+        conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
     end
   end
 
