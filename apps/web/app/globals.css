@@ -146,6 +146,7 @@
 
 @media print {
   @page {
+    size: A4;
     margin: 12mm;
   }
 
@@ -155,17 +156,28 @@
     overflow: visible !important;
   }
 
-  body > *:not(#login-cards-print) {
+  body > *:not(#login-cards-print):not(#results-print) {
     display: none !important;
   }
 
-  #login-cards-print {
+  #login-cards-print,
+  #results-print {
     display: block !important;
     position: static !important;
     width: 100%;
     max-height: none !important;
     overflow: visible !important;
     padding: 0 !important;
+  }
+
+  #results-print {
+    color: #1f2933;
+    font-size: 10pt;
+  }
+
+  #results-print .results-category {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   #login-cards-print .login-card {

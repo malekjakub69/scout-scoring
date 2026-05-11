@@ -14,6 +14,7 @@ defmodule ApiWeb.PatrolController do
   def create(conn, %{"race_id" => rid} = params) do
     case Races.create_patrol(rid, owner(conn), params) do
       {:ok, p} -> conn |> put_status(201) |> json(p)
+      {:error, :race_not_draft} -> conn |> put_status(409) |> json(%{error: "race_not_draft"})
       _ -> conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
     end
   end
@@ -22,6 +23,7 @@ defmodule ApiWeb.PatrolController do
     case Races.bulk_create_patrols(rid, owner(conn), patrols) do
       {:ok, created} -> conn |> put_status(201) |> json(%{created: length(created)})
       {:partial, report} -> conn |> put_status(207) |> json(report)
+      {:error, :race_not_draft} -> conn |> put_status(409) |> json(%{error: "race_not_draft"})
       _ -> conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
     end
   end
@@ -29,6 +31,8 @@ defmodule ApiWeb.PatrolController do
   def update(conn, %{"id" => id} = params) do
     case Races.update_patrol(id, owner(conn), params) do
       {:ok, p} -> json(conn, p)
+      {:error, :race_not_draft} -> conn |> put_status(409) |> json(%{error: "race_not_draft"})
+      {:error, :forbidden} -> conn |> put_status(403) |> json(%{error: "forbidden"})
       _ -> conn |> put_status(404) |> json(%{error: "not_found"})
     end
   end
@@ -36,6 +40,8 @@ defmodule ApiWeb.PatrolController do
   def delete(conn, %{"id" => id}) do
     case Races.delete_patrol(id, owner(conn)) do
       {:ok, :deleted} -> send_resp(conn, 204, "")
+      {:error, :race_not_draft} -> conn |> put_status(409) |> json(%{error: "race_not_draft"})
+      {:error, :forbidden} -> conn |> put_status(403) |> json(%{error: "forbidden"})
       {:error, :not_found} -> conn |> put_status(404) |> json(%{error: "not_found"})
       _ -> conn |> put_status(422) |> json(%{error: "unprocessable_entity"})
     end

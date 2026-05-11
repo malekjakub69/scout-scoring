@@ -18,6 +18,7 @@ export const qk = {
   raceMembers: (raceId: string) => ["race-members", raceId] as const,
   dashboard: (raceId: string) => ["dashboard", raceId] as const,
   leaderboard: (raceId: string) => ["leaderboard", raceId] as const,
+  results: (raceId: string) => ["results", raceId] as const,
   stationMe: ["station", "me"] as const,
   stationEntries: ["station", "entries"] as const,
   stationRaces: ["station", "races"] as const,

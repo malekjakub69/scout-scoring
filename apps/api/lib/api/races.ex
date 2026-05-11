@@ -2,6 +2,7 @@ defmodule Api.Races do
   @moduledoc "Race / Category / Patrol / Station context."
 
   alias Api.{SurrealDB, Auth.StationToken, AuditLog, Accounts}
+  require Logger
 
   # ---------- Race ----------
 
@@ -25,15 +26,7 @@ defmodule Api.Races do
              "SELECT * FROM race WHERE owner = $organizer ORDER BY created_at DESC;",
              %{organizer: organizer_id}
            ),
-         {:ok, shared} <-
-           SurrealDB.all(
-             """
-             SELECT race, role
-             FROM race_member
-             WHERE organizer = $organizer;
-             """,
-             %{organizer: organizer_id}
-           ) do
+         {:ok, shared} <- list_shared_races(organizer_id) do
       races =
         (Enum.map(owned, &put_access(&1, "owner")) ++
            Enum.flat_map(shared, fn %{"race" => race_id, "role" => role} ->
@@ -46,6 +39,21 @@ defmodule Api.Races do
         |> Enum.sort_by(&to_string(&1["created_at"]), :desc)
 
       {:ok, races}
+    end
+  end
+
+  defp list_shared_races(organizer_id) do
+    case SurrealDB.all(
+           """
+           SELECT race, role
+           FROM race_member
+           WHERE organizer = $organizer;
+           """,
+           %{organizer: organizer_id}
+         ) do
+      {:ok, shared} -> {:ok, shared}
+      {:error, {:surreal, "The table 'race_member' does not exist"}} -> {:ok, []}
+      err -> err
     end
   end
 
@@ -341,7 +349,7 @@ defmodule Api.Races do
   end
 
   def create_patrol(race_id, organizer_id, attrs) do
-    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_draft_edit(race_id, organizer_id) do
       sql = """
       CREATE patrol SET
         race = $race,
@@ -362,7 +370,7 @@ defmodule Api.Races do
   end
 
   def bulk_create_patrols(race_id, organizer_id, patrols) when is_list(patrols) do
-    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_draft_edit(race_id, organizer_id) do
       results =
         Enum.map(patrols, fn attrs ->
           case create_patrol(race_id, organizer_id, attrs) do
@@ -388,9 +396,13 @@ defmodule Api.Races do
   def update_patrol(id, organizer_id, attrs) do
     with {:ok, patrol} when is_map(patrol) <-
            SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}),
-         {:ok, _race} <- ensure_race_edit(patrol["race"], organizer_id) do
+         {:ok, _race} <- ensure_race_draft_edit(patrol["race"], organizer_id) do
       do_update_patrol(id, attrs)
     else
+      {:ok, nil} -> {:error, :not_found}
+      {:error, :race_not_draft} = err -> err
+      {:error, :forbidden} = err -> err
+      {:error, {:surreal, _}} = err -> err
       _ -> {:error, :not_found}
     end
   end
@@ -416,7 +428,7 @@ defmodule Api.Races do
   def delete_patrol(id, organizer_id) do
     with {:ok, patrol} when is_map(patrol) <-
            SurrealDB.one("SELECT id, race FROM $id LIMIT 1;", %{id: id}),
-         {:ok, _race} <- ensure_race_edit(patrol["race"], organizer_id),
+         {:ok, _race} <- ensure_race_draft_edit(patrol["race"], organizer_id),
          {:ok, _} <- SurrealDB.query("DELETE $id;", %{id: patrol["id"]}) do
       {:ok, :deleted}
     else
@@ -437,12 +449,13 @@ defmodule Api.Races do
   end
 
   def create_station(race_id, organizer_id, attrs) do
-    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_draft_edit(race_id, organizer_id) do
       sql = """
       CREATE station SET
         race = $race,
         name = $name,
         position = $position,
+        allow_half_points = $allow_half_points,
         criteria = $criteria;
       """
 
@@ -450,13 +463,14 @@ defmodule Api.Races do
         race: race_id,
         name: attrs["name"],
         position: attrs["position"] || 0,
+        allow_half_points: attrs["allow_half_points"] == true,
         criteria: attrs["criteria"] || []
       })
     end
   end
 
   def bulk_create_stations(race_id, organizer_id, stations) when is_list(stations) do
-    with {:ok, _} <- ensure_race_edit(race_id, organizer_id) do
+    with {:ok, _} <- ensure_race_draft_edit(race_id, organizer_id) do
       results =
         Enum.map(stations, fn attrs ->
           case create_station(race_id, organizer_id, attrs) do
@@ -480,12 +494,17 @@ defmodule Api.Races do
   end
 
   def update_station(id, organizer_id, attrs) do
-    with {:ok, station} when is_map(station) <-
-           SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}),
-         {:ok, _race} <- ensure_race_edit(station["race"], organizer_id) do
-      do_update_station(id, attrs)
-    else
-      _ -> {:error, :not_found}
+    case SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}) do
+      {:ok, station} when is_map(station) ->
+        with {:ok, _race} <- ensure_race_draft_edit(station["race"], organizer_id) do
+          do_update_station(id, attrs)
+        end
+
+      {:ok, nil} ->
+        {:error, :not_found}
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -494,6 +513,7 @@ defmodule Api.Races do
     UPDATE $id SET
       name = $name,
       position = $position,
+      allow_half_points = $allow_half_points,
       criteria = $criteria
     """
 
@@ -501,23 +521,166 @@ defmodule Api.Races do
       id: id,
       name: attrs["name"],
       position: attrs["position"] || 0,
+      allow_half_points: attrs["allow_half_points"] == true,
       criteria: attrs["criteria"] || []
     })
   end
 
   def deactivate_station(id, organizer_id) do
-    sql = "UPDATE $id SET is_active = false, access_token_hash = NONE;"
-
     with {:ok, station} when is_map(station) <-
            SurrealDB.one("SELECT * FROM $id LIMIT 1;", %{id: id}),
          {:ok, _race} <- ensure_race_edit(station["race"], organizer_id) do
-      case SurrealDB.one(sql, %{id: id}) do
-        {:ok, station} when is_map(station) -> {:ok, station}
-        {:ok, nil} -> {:error, :not_found}
-        err -> err
+      case station["is_active"] do
+        true ->
+          case deactivate_station_record(id, station["allow_half_points"] == true) do
+            {:ok, station} when is_map(station) ->
+              {:ok, clear_station_access_fields(station)}
+
+            {:ok, nil} ->
+              {:error, :not_found}
+
+            err ->
+              err
+          end
+
+        _ ->
+          activate_station_record(id, station)
       end
     else
+      {:ok, nil} -> {:error, :not_found}
+      {:error, :forbidden} = err -> err
+      {:error, {:surreal, _}} = err -> err
       _ -> {:error, :not_found}
+    end
+  end
+
+  defp activate_station_record(id, station) do
+    allow_half_points = station["allow_half_points"] == true
+    pin = station["pin"] || StationToken.generate_pin()
+    nonce = station["access_token_hash"] || StationToken.generate_nonce()
+
+    sql = """
+    UPDATE ONLY type::record($table, $record_id) SET
+      is_active = true,
+      allow_half_points = $allow_half_points,
+      pin = $pin,
+      access_token_hash = $nonce;
+    """
+
+    typed_update =
+      with {:ok, vars} <- station_record_vars(id) do
+        SurrealDB.one(
+          sql,
+          vars
+          |> Map.put(:allow_half_points, allow_half_points)
+          |> Map.put(:pin, pin)
+          |> Map.put(:nonce, nonce)
+        )
+      end
+
+    case typed_update do
+      {:ok, station} when is_map(station) ->
+        {:ok, Map.put(station, "qr_url", "#{web_base_url()}/station/#{station["id"]}?pin=#{pin}")}
+
+      {:ok, nil} ->
+        fallback_activate_station_record(id, allow_half_points, pin, nonce)
+
+      {:error, reason} ->
+        Logger.warning("Station #{id} typed activate failed: #{inspect(reason)}")
+        fallback_activate_station_record(id, allow_half_points, pin, nonce)
+
+      _ ->
+        fallback_activate_station_record(id, allow_half_points, pin, nonce)
+    end
+  end
+
+  defp fallback_activate_station_record(id, allow_half_points, pin, nonce) do
+    sql = """
+    UPDATE $id SET
+      is_active = true,
+      allow_half_points = $allow_half_points,
+      pin = $pin,
+      access_token_hash = $nonce;
+    """
+
+    case SurrealDB.one(sql, %{
+           id: id,
+           allow_half_points: allow_half_points,
+           pin: pin,
+           nonce: nonce
+         }) do
+      {:ok, station} when is_map(station) ->
+        {:ok, Map.put(station, "qr_url", "#{web_base_url()}/station/#{station["id"]}?pin=#{pin}")}
+
+      err ->
+        err
+    end
+  end
+
+  defp deactivate_station_record(id, allow_half_points) do
+    typed_update =
+      with {:ok, vars} <- station_record_vars(id) do
+        SurrealDB.one(
+          """
+          UPDATE ONLY type::record($table, $record_id) SET
+            is_active = false,
+            allow_half_points = $allow_half_points;
+          """,
+          Map.put(vars, :allow_half_points, allow_half_points)
+        )
+      end
+
+    case typed_update do
+      {:ok, station} when is_map(station) ->
+        {:ok, station}
+
+      {:ok, nil} ->
+        fallback_deactivate_station_record(id, allow_half_points)
+
+      {:error, reason} ->
+        Logger.warning("Station #{id} typed deactivate failed: #{inspect(reason)}")
+        fallback_deactivate_station_record(id, allow_half_points)
+
+      _ ->
+        fallback_deactivate_station_record(id, allow_half_points)
+    end
+  end
+
+  defp fallback_deactivate_station_record(id, allow_half_points) do
+    SurrealDB.one(
+      "UPDATE $id SET is_active = false, allow_half_points = $allow_half_points;",
+      %{id: id, allow_half_points: allow_half_points}
+    )
+  end
+
+  defp station_record_vars("station:" <> record_id) when byte_size(record_id) > 0 do
+    {:ok, %{table: "station", record_id: record_id}}
+  end
+
+  defp station_record_vars(_id), do: {:error, :invalid_station_id}
+
+  defp clear_station_access_fields(%{"id" => id} = station) do
+    query =
+      "UPDATE ONLY type::record($table, $record_id) SET access_token_hash = NONE, pin = NONE;"
+
+    result =
+      with {:ok, vars} <- station_record_vars(id) do
+        SurrealDB.one(query, vars)
+      end
+
+    case result do
+      {:ok, updated} when is_map(updated) ->
+        updated
+
+      {:ok, _} ->
+        station
+
+      {:error, reason} ->
+        Logger.warning(
+          "Station #{id} deactivated, but clearing access fields failed: #{inspect(reason)}"
+        )
+
+        station
     end
   end
 
@@ -583,6 +746,14 @@ defmodule Api.Races do
       {:ok, race, role} when role in ["owner", "edit"] -> {:ok, put_access(race, role)}
       {:ok, _race, "read"} -> {:error, :forbidden}
       _ -> {:error, :not_found}
+    end
+  end
+
+  defp ensure_race_draft_edit(race_id, organizer_id) do
+    case ensure_race_edit(race_id, organizer_id) do
+      {:ok, %{"state" => "draft"} = race} -> {:ok, race}
+      {:ok, _race} -> {:error, :race_not_draft}
+      err -> err
     end
   end
 

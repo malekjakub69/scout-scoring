@@ -16,8 +16,7 @@ RUN mix deps.compile
 
 COPY config config
 COPY lib lib
-# Pokud máš assety (v API nejspíš ne), přidej je sem
-# COPY priv priv
+COPY priv priv
 
 RUN mix compile
 RUN mix release

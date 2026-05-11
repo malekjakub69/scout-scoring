@@ -1,15 +1,17 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useRace, useActivateRace, useCloseRace } from "@/lib/queries/races";
 import { useDashboard, useLeaderboardGroups } from "@/lib/queries/dashboard";
-import type { DashboardPatrolRow, DashboardStationRow } from "@/lib/api/types";
+import type { DashboardActivityRow, DashboardPatrolRow, DashboardStationRow } from "@/lib/api/types";
 import { fromNowFormat } from "@/lib/utils";
 import { toast } from "sonner";
 
 export function OverviewTab({ raceId }: { raceId: string }) {
+  const router = useRouter();
   const { data: race } = useRace(raceId);
   const { data: dashboardData } = useDashboard(raceId, { refetchInterval: 10_000 });
   const { isLoading: leaderboardLoading } = useLeaderboardGroups(raceId, {
@@ -44,35 +46,35 @@ export function OverviewTab({ raceId }: { raceId: string }) {
 
   const patrols = payload?.patrols ?? [];
   const stations = payload?.stations ?? [];
+  const activity = payload?.activity ?? [];
   const totalPatrols = patrols.length;
   const totalStations = stations.length;
   const allEntries = patrols.reduce((acc, p) => acc + p.stations_done, 0);
   const maxEntries = totalPatrols * totalStations;
   const progress = maxEntries > 0 ? Math.round((allEntries / maxEntries) * 100) : 0;
 
-  const canEdit = race.access_role !== "read";
-  const hasAction = canEdit && (race.state === "draft" || race.state === "active");
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3.5">
-      {hasAction ? (
-        <div className="flex shrink-0 justify-end gap-2">
-          {race.state === "draft" ? (
-            <Button onClick={onActivate} disabled={activate.isPending}>Spustit závod</Button>
-          ) : null}
-          {race.state === "active" ? (
-            <Button variant="outline" onClick={onClose} disabled={close.isPending}>Uzavřít závod</Button>
-          ) : null}
-        </div>
-      ) : null}
+    <div className="flex h-full min-h-0 flex-col gap-2.5 sm:gap-3.5">
+      <div className="flex shrink-0 justify-end gap-2">
+        {race.state === "draft" ? (
+          <Button onClick={onActivate} disabled={activate.isPending}>Spustit závod</Button>
+        ) : null}
+        {race.state === "active" ? (
+          <Button variant="outline" onClick={onClose} disabled={close.isPending}>Uzavřít závod</Button>
+        ) : null}
+        {race.state === "closed" ? (
+          <Button variant="outline" onClick={() => router.push(`/dashboard/results?raceId=${encodeURIComponent(raceId)}`)}>Zobrazit výsledky</Button>
+        ) : null}
+      </div>
 
-      <div className="grid min-h-0 flex-1 gap-4.5 xl:grid-cols-[360px,minmax(0,1fr)]">
-        <div className="flex min-h-0 flex-col gap-3.5 overflow-hidden">
+      <div className="grid min-h-0 flex-1 gap-3 sm:gap-4.5 xl:grid-cols-[360px,minmax(0,1fr)]">
+        <div className="flex min-h-0 flex-col gap-2.5 overflow-hidden sm:gap-3.5">
           <ProgressRingCard progress={progress} done={allEntries} total={maxEntries} patrols={totalPatrols} stations={totalStations} />
-          <ActivityFeedCard patrols={patrols} loading={loading} />
+          <ActivityFeedCard activity={activity} loading={loading} />
         </div>
 
-        <div className="flex min-h-0 flex-col gap-3.5 overflow-hidden">
+        <div className="flex min-h-0 flex-col gap-2.5 overflow-hidden sm:gap-3.5">
           <PatrolTableCard patrols={patrols} totalStations={totalStations} />
           <StationsOverviewCard stations={stations} totalPatrols={totalPatrols} />
         </div>
@@ -100,7 +102,7 @@ function ProgressRingCard({
   const dash = (progress / 100) * circumference;
 
   return (
-    <section className="flex shrink-0 items-center gap-5 rounded-12 border border-scout-border bg-white p-5">
+    <section className="flex max-h-[320px] shrink-0 items-center gap-3 rounded-12 border border-scout-border bg-white p-3 sm:gap-5 sm:p-5">
       <div className="relative h-41 w-41 shrink-0">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
           <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E4E1D8" strokeWidth={14} />
@@ -120,7 +122,7 @@ function ProgressRingCard({
           <div className="mt-0.5 text-11 text-scout-text-muted">průběh</div>
         </div>
       </div>
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-2.5 sm:gap-3.5">
         <Stat label="Zápisů" value={`${done} / ${total}`} />
         <Stat label="Hlídky" value={String(patrols)} />
         <Stat label="Stanoviště" value={String(stations)} />
@@ -138,15 +140,14 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ActivityFeedCard({ patrols, loading }: { patrols: DashboardPatrolRow[]; loading: boolean }) {
-  const latest = [...patrols]
-    .filter((p) => p.last_activity)
-    .sort((a, b) => new Date(b.last_activity ?? 0).getTime() - new Date(a.last_activity ?? 0).getTime())
-    .slice(0, 8);
+function ActivityFeedCard({ activity, loading }: { activity: DashboardActivityRow[]; loading: boolean }) {
+  const latest = [...activity]
+    .filter((item) => item.activity_at)
+    .sort((a, b) => new Date(b.activity_at ?? 0).getTime() - new Date(a.activity_at ?? 0).getTime());
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-12 border border-scout-border bg-white">
-      <div className="flex shrink-0 items-center justify-between border-b border-scout-border px-4 py-3">
+    <section className="flex max-h-[450px] min-h-[225px] flex-col overflow-hidden rounded-12 border border-scout-border bg-white">
+      <div className="flex shrink-0 items-center justify-between border-b border-scout-border px-3 py-2.5 sm:px-4 sm:py-3">
         <span className="text-13 font-semibold text-scout-text">Live aktivita</span>
         <span className="text-2xs text-scout-text-muted">{loading ? "načítám" : "↻ 10 s"}</span>
       </div>
@@ -154,15 +155,17 @@ function ActivityFeedCard({ patrols, loading }: { patrols: DashboardPatrolRow[];
         {latest.length === 0 ? (
           <EmptyState className="m-3 border-none bg-transparent py-8" title="Zatím bez aktivity" description="První zapsané body se objeví tady." />
         ) : (
-          latest.map((p, index) => (
-            <div key={p.id} className={`flex items-center gap-2.5 border-b border-scout-border px-4 py-2.25 ${index % 2 === 0 ? "bg-scout-bg-subtle" : "bg-white"}`}>
-              <span className={`h-1.75 w-1.75 shrink-0 rounded-full ${index < 2 ? "bg-scout-green" : "bg-scout-blue-light"}`} />
+          latest.map((item, index) => (
+            <div key={item.id} className={`flex items-center gap-2 border-b border-scout-border px-3 py-2 sm:gap-2.5 sm:px-4 sm:py-2.25 ${index % 2 === 0 ? "bg-scout-bg-subtle" : "bg-white"}`}>
+              <span className={`h-1.75 w-1.75 shrink-0 rounded-full ${isRecentActivity(item.activity_at) ? "bg-scout-green" : "bg-scout-blue-light"}`} />
               <div className="min-w-0 flex-1">
-                <span className="text-12 font-semibold text-scout-text">{p.name}</span>
-                <span className="text-12 text-scout-text-muted"> · {p.stations_done} stanovišť</span>
+                <span className="block truncate text-12 font-semibold text-scout-text">
+                  {item.station_name ?? "Neznámé stanoviště"}
+                </span>
+                <span className="block truncate text-12 text-scout-text-muted">{formatActivityPatrol(item)}</span>
               </div>
-              <span className="shrink-0 text-13 font-bold tabular-nums text-scout-blue">{p.total_points} b.</span>
-              <span className="w-12.5 shrink-0 text-right text-11 text-scout-text-muted">{fromNowFormat(p.last_activity)}</span>
+              <span className="shrink-0 text-13 font-bold tabular-nums text-scout-blue">{item.points} b.</span>
+              <span className="w-12.5 shrink-0 text-right text-11 text-scout-text">{fromNowFormat(item.activity_at)}</span>
             </div>
           ))
         )}
@@ -171,10 +174,24 @@ function ActivityFeedCard({ patrols, loading }: { patrols: DashboardPatrolRow[];
   );
 }
 
+function formatActivityPatrol(item: DashboardActivityRow) {
+  const name = item.patrol_name ?? "Neznámá hlídka";
+  return name;
+}
+
+function isRecentActivity(value?: string | null) {
+  if (!value) return false;
+
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return false;
+
+  return Date.now() - time < 2 * 60 * 1000;
+}
+
 function PatrolTableCard({ patrols, totalStations }: { patrols: DashboardPatrolRow[]; totalStations: number }) {
   return (
-    <section className="flex h-[450px] min-h-0 shrink-0 flex-col overflow-hidden rounded-12 border border-scout-border bg-white">
-      <div className="flex shrink-0 items-center justify-between border-b border-scout-border px-4.5 py-3">
+    <section className="flex max-h-[450px] min-h-[225px] shrink-0 flex-col overflow-hidden rounded-12 border border-scout-border bg-white">
+      <div className="flex shrink-0 items-center justify-between border-b border-scout-border px-3 py-2.5 sm:px-4.5 sm:py-3">
         <span className="text-13 font-semibold text-scout-text">Hlídky</span>
         <span className="text-11 text-scout-text-muted">{patrols.length} celkem</span>
       </div>
@@ -185,8 +202,8 @@ function PatrolTableCard({ patrols, totalStations }: { patrols: DashboardPatrolR
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-scout-bg-table">
-                {["#", "Hlídka", "Stanovišť", "Body", "Aktivita"].map((header, index) => (
-                  <th key={header} className={`border-b border-scout-border px-3 py-2 text-2xs font-semibold uppercase tracking-0.5 text-scout-text-muted ${index <= 1 ? "text-left" : "text-right"}`}>
+                {["Hlídka", "Stanovišť", "Body", "Poslední aktivita"].map((header, index) => (
+                  <th key={header} className={`border-b border-scout-border px-3 py-2 text-2xs font-semibold uppercase tracking-0.5 text-scout-text-muted ${index < 1 ? "text-left" : "text-right w-[20%]"}`}>
                     {header}
                   </th>
                 ))}
@@ -195,13 +212,10 @@ function PatrolTableCard({ patrols, totalStations }: { patrols: DashboardPatrolR
             <tbody>
               {[...patrols].sort((a, b) => b.total_points - a.total_points).map((p, index) => (
                 <tr key={p.id} className={`border-b border-scout-border ${index % 2 === 0 ? "bg-white" : "bg-scout-bg-subtle"}`}>
-                  <td className="w-12 px-3 py-2.25">
-                    <span className="grid h-8 w-8 place-items-center rounded-8 bg-scout-blue text-13 font-bold text-white">{p.start_number}</span>
-                  </td>
-                  <td className="px-3 py-2.25 text-13 font-semibold text-scout-text">{p.name}</td>
+                  <td className="px-2.5 py-2.5 text-13 font-semibold text-scout-text sm:px-3 sm:py-3">{p.name}</td>
                   <td className="px-3 py-2.25 text-right"><MiniProgress done={p.stations_done} total={totalStations} /></td>
                   <td className="px-3 py-2.25 text-right text-14 font-bold tabular-nums text-scout-text">{p.total_points}</td>
-                  <td className="px-3 py-2.25 text-right text-11 text-scout-text-muted">{fromNowFormat(p.last_activity)}</td>
+                  <td className="px-3 py-2.25 text-right text-11 text-scout-text">{fromNowFormat(p.last_activity)}</td>
                 </tr>
               ))}
             </tbody>
@@ -218,7 +232,7 @@ function MiniProgress({ done, total }: { done: number; total: number }) {
 
   return (
     <div className="flex items-center justify-end gap-1.5">
-      <div className="h-1.25 w-11 overflow-hidden rounded-full bg-scout-bg-track">
+      <div className="h-1.25 w-full overflow-hidden rounded-full bg-scout-bg-track">
         <div className={`h-full ${color}`} style={{ width: `${pct * 100}%` }} />
       </div>
       <span className={`min-w-8.5 text-right text-12 tabular-nums ${pct >= 1 ? "text-scout-green" : "text-scout-text-secondary"}`}>
@@ -230,7 +244,7 @@ function MiniProgress({ done, total }: { done: number; total: number }) {
 
 function StationsOverviewCard({ stations, totalPatrols }: { stations: DashboardStationRow[]; totalPatrols: number }) {
   return (
-    <section className="flex max-h-[450px] shrink-0 flex-col overflow-hidden rounded-12 border border-scout-border bg-white px-4.5 py-3.5">
+    <section className="flex max-h-[450px] min-h-[225px] shsrink-0 flex-col overflow-hidden rounded-12 border border-scout-border bg-white px-3 py-2.5 sm:px-4.5 sm:py-3.5">
       <div className="mb-3 shrink-0 text-13 font-semibold text-scout-text">Stanoviště — průběh</div>
       {stations.length === 0 ? (
         <EmptyState className="border-none bg-transparent py-6" title="Žádná stanoviště" description="V tabu Stanoviště je definuj a pak spusť závod." />

@@ -12,6 +12,8 @@ defmodule ApiWeb.DashboardController do
          {:ok, scores} <- Scoring.list_for_race(rid) do
       by_patrol = Enum.group_by(scores, & &1["patrol"])
       by_station = Enum.group_by(scores, & &1["station"])
+      patrols_by_id = Map.new(patrols, &{&1["id"], &1})
+      stations_by_id = Map.new(stations, &{&1["id"], &1})
 
       patrols_rows =
         Enum.map(patrols, fn p ->
@@ -43,10 +45,31 @@ defmodule ApiWeb.DashboardController do
           }
         end)
 
+      activity_rows =
+        scores
+        |> Enum.map(fn score ->
+          patrol = Map.get(patrols_by_id, score["patrol"], %{})
+          station = Map.get(stations_by_id, score["station"], %{})
+
+          %{
+            id: score["id"],
+            patrol_id: score["patrol"],
+            patrol_name: patrol["name"],
+            patrol_start_number: patrol["start_number"],
+            station_id: score["station"],
+            station_name: station["name"],
+            station_position: station["position"],
+            points: sum_points([score]),
+            activity_at: score["updated_at"] || score["created_at"]
+          }
+        end)
+        |> Enum.sort_by(&(&1.activity_at || ""), :desc)
+
       json(conn, %{
         race: race,
         patrols: patrols_rows,
-        stations: stations_rows
+        stations: stations_rows,
+        activity: activity_rows
       })
     else
       _ -> conn |> put_status(404) |> json(%{error: "not_found"})
