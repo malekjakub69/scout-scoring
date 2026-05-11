@@ -19,3 +19,11 @@ export function useLeaderboardGroups(raceId: string | null | undefined, options?
     refetchInterval: options?.refetchInterval,
   });
 }
+
+export function useResults(raceId: string | null | undefined) {
+  return useQuery({
+    queryKey: qk.results(raceId ?? "__nil__"),
+    queryFn: () => DashboardApi.getResults(raceId as string),
+    enabled: !!raceId,
+  });
+}

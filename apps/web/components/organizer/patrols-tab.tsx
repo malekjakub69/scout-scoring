@@ -151,14 +151,17 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {patrols.map((p, index) => (
+                {patrols.map((p, index) => {
+                  const categoryLabel = getPatrolCategoryLabel(p, categories);
+
+                  return (
                   <tr key={p.id} className={`border-b border-scout-border ${index % 2 === 0 ? "bg-white" : "bg-scout-bg-subtle"}`}>
                     <td className="w-14 px-3 py-2.25">
                       <span className="grid h-8 w-8 place-items-center rounded-8 bg-scout-blue text-13 font-bold tabular-nums text-white">{p.start_number}</span>
                     </td>
                     <td className="px-3 py-2.25 text-13 font-semibold text-scout-text">{p.name}</td>
                     <td className="px-3 py-2.25">
-                      <CategoryBadge label={categories.find((c) => c.id === p.category)?.name ?? p.category ?? "—"} />
+                      <CategoryBadge label={categoryLabel} />
                     </td>
                     <td className="px-3 py-2.25 text-12 text-scout-text-muted">
                       {(p.members ?? []).length ? `${(p.members ?? []).length} členů` : "—"}
@@ -184,7 +187,8 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -206,13 +210,37 @@ export function PatrolsTab({ raceId }: { raceId: string }) {
   );
 }
 
-function CategoryBadge({ label }: { label: string }) {
+function getPatrolCategoryLabel(patrol: Patrol, categories: { id: string; name: string }[]) {
+  return categories.find((c) => c.id === patrol.category)?.name ?? patrol.category ?? "—";
+}
+
+function getCategoryKind(label: string) {
   const normalized = label.toLowerCase();
-  const tone = normalized.includes("dív") || normalized === "d"
-    ? "bg-scout-category-girls text-scout-blue-mid"
-    : normalized.includes("chlap") || normalized === "ch"
-      ? "bg-scout-category-boys text-scout-blue"
-      : "bg-scout-category-open text-scout-text-warm";
+
+  if (normalized.includes("hol") || normalized.includes("dív") || normalized === "d") {
+    return "girls";
+  }
+
+  if (normalized.includes("klu") || normalized.includes("chlap") || normalized === "ch") {
+    return "boys";
+  }
+
+  if (normalized.includes("nesout")) {
+    return "open";
+  }
+
+  return "other";
+}
+
+function CategoryBadge({ label }: { label: string }) {
+  const kind = getCategoryKind(label);
+  const tone = kind === "girls"
+    ? "bg-pink-100 text-pink-800"
+    : kind === "boys"
+      ? "bg-sky-100 text-sky-800"
+      : kind === "open"
+        ? "bg-slate-100 text-slate-700"
+        : "bg-scout-category-open text-scout-text-warm";
 
   return <span className={`inline-flex rounded-full px-2 py-0.75 text-11 font-semibold ${tone}`}>{label}</span>;
 }
@@ -252,10 +280,22 @@ function PatrolDialog({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      toast.error("Zadej název hlídky.");
+      return;
+    }
+
+    if (!category) {
+      toast.error("Vyber kategorii hlídky.");
+      return;
+    }
+
     const payload = {
       start_number: patrol ? patrol.start_number : nextStartNumber,
-      name,
-      category: category || null,
+      name: trimmedName,
+      category,
       members: members.split(",").map((s) => s.trim()).filter(Boolean),
     };
     try {
@@ -292,7 +332,7 @@ function PatrolDialog({
             <Label>Kategorie</Label>
             <Select value={category || undefined} onValueChange={setCategory}>
               <SelectTrigger className="h-10 rounded-10 border-1.5 border-scout-border bg-white text-14 text-scout-text shadow-sm">
-                <SelectValue placeholder="Bez kategorie" />
+                <SelectValue placeholder="Vyber kategorii" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (

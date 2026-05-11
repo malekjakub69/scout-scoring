@@ -2,11 +2,14 @@
 
 Monorepo pro aplikaci Scout Scoring (viz `docs/spec.md`).
 
+Aktuální projektová verze je v `VERSION`; změny mezi verzemi se zapisují do
+`CHANGELOG.md`.
+
 ```
 scout-scoring/
 ├── apps/
 │   ├── api/       # Elixir + Phoenix REST API (this)
-│   └── web/       # Next.js frontend (TBD)
+│   └── web/       # Next.js frontend pro organizátora a rozhodčí
 └── docs/spec.md
 ```
 
@@ -48,6 +51,17 @@ Prerekvizita: Elixir 1.19+, Erlang/OTP 28+, SurrealDB 3.x CLI.
 
    Běží na `http://127.0.0.1:4000`. `GET /api/health` vrací `{"status":"ok","db":"ok"}`.
 
+## Verzování a changelog
+
+- Root `VERSION` drží aktuální projektovou verzi.
+- `apps/api/mix.exs` a `apps/web/package.json` drží verze jednotlivých aplikací;
+  při release je drž synchronizované s root verzí, pokud není výslovný důvod je
+  vydávat samostatně.
+- `CHANGELOG.md` obsahuje sekci `Unreleased` pro průběžné změny a sekce
+  konkrétních verzí podle SemVer (`MAJOR.MINOR.PATCH`).
+- Při větší produktové, API, routovací nebo workflow změně doplň `CHANGELOG.md`
+  ve stejném kroku jako README/docs.
+
 ## Auth
 
 - **Organizátor:** JWT v `Authorization: Bearer <token>`. Získání: `POST /api/auth/login`.
@@ -83,6 +97,41 @@ Prerekvizita: Elixir 1.19+, Erlang/OTP 28+, SurrealDB 3.x CLI.
 | `GET` | `/api/station/me` | station |
 | `GET` | `/api/station/scores` | station |
 | `POST` | `/api/station/scores` | station |
+
+## Frontend trasy
+
+| Trasa | Pro koho | Co dělá |
+|---|---|---|
+| `/` | public | landing + vstup do dashboardu |
+| `/login` | organizátor | přihlášení organizátora |
+| `/dashboard` | organizátor | správa závodu: Přehled, Hlídky, Stanoviště, Nastavení |
+| `/dashboard/results?raceId=:id` | organizátor | výsledkové tabulky po kategoriích pro uzavřený závod |
+| `/dashboard/results/patrol?raceId=:id&patrolId=:id` | organizátor | detail bodů jedné hlídky po stanovištích a podúkolech |
+| `/station` | rozhodčí | výběr závodu a aktivního stanoviště |
+| `/station/:stationId?pin=...` | rozhodčí | zadávání bodů na stanovišti |
+
+## Dashboard a výsledky
+
+Organizátorský dashboard používá `GET /api/races/:race_id/dashboard`.
+Payload obsahuje agregace po hlídkách a stanovištích plus `activity` — jeden
+řádek za každý záznam skóre (`score_entry`). Live aktivita proto ukazuje
+konkrétní průchod hlídky stanovištěm: stanoviště, hlídku, body a čas poslední
+aktualizace. Frontend polluje dashboard přibližně každých 10 s.
+
+Dashboard má čtyři hlavní taby: Přehled, Hlídky, Stanoviště a Nastavení. Na
+mobilu se tab navigace přepne na ikonové záložky bez horizontálního nebo
+vertikálního scrollu; aktivní záložka je zvýrazněná spodním žlutým borderem.
+
+Po uzavření závodu je v přehledu dostupné tlačítko **Zobrazit výsledky**.
+Výsledková stránka používá `GET /api/races/:race_id/leaderboard` a zobrazuje
+tabulku pro každou kategorii se sloupci pořadí, hlídka, body a rozdíl oproti
+předchozí hlídce. Kliknutí na hlídku otevře detail, který používá
+`GET /api/races/:race_id/results` a vypíše body hlídky po jednotlivých
+stanovištích. Řádek stanoviště lze rozbalit na podúkoly/kritéria a jejich body.
+
+Výsledková stránka má tlačítko **Export**, které otevře tiskový dialog pro A4
+souhrn výsledků. Tisková verze obsahuje QR kód na aktuální online stránku
+výsledků.
 
 ## AI import stanovišť
 

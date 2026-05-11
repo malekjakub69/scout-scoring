@@ -136,10 +136,23 @@ export interface DashboardStationRow {
   pending: number;
 }
 
+export interface DashboardActivityRow {
+  id: string;
+  patrol_id: string;
+  patrol_name?: string | null;
+  patrol_start_number?: number | null;
+  station_id: string;
+  station_name?: string | null;
+  station_position?: number | null;
+  points: number;
+  activity_at?: string | null;
+}
+
 export interface DashboardPayload {
   race: Race;
   patrols: DashboardPatrolRow[];
   stations: DashboardStationRow[];
+  activity?: DashboardActivityRow[];
 }
 
 export interface LeaderboardRow {
@@ -159,6 +172,14 @@ export interface LeaderboardGroup {
   category_name: string;
   scored: boolean;
   rows: LeaderboardRow[];
+}
+
+export interface ResultsPayload {
+  race: Race;
+  stations: Station[];
+  patrols: Patrol[];
+  score_entries: ScoreEntry[];
+  leaderboard: LeaderboardGroup[];
 }
 
 // Station (judge) endpoint types

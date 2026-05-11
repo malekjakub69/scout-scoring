@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { LogOut, Loader2, Users } from "lucide-react";
+import { ClipboardList, LayoutDashboard, LogOut, Loader2, MapPinned, Settings, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RaceSelector } from "@/components/organizer/race-selector";
 import { OverviewTab } from "@/components/organizer/overview-tab";
@@ -81,7 +81,7 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen flex-col overflow-hidden bg-scout-bg-app text-scout-text">
       <Tabs defaultValue="overview" className="flex min-h-screen flex-col">
-        <header className="flex h-13 shrink-0 items-center gap-3 bg-scout-blue px-7 text-white">
+        <header className="flex h-13 shrink-0 items-center gap-2 bg-scout-blue px-3 text-white sm:gap-3 sm:px-7">
           <div className="flex shrink-0 items-center gap-2">
             <span className="h-2.25 w-2.25 rounded-full bg-scout-yellow" />
             <span className="text-15 font-bold tracking-tightest">Scout Scoring</span>
@@ -117,7 +117,7 @@ export default function DashboardPage() {
 
         {current ? (
           <>
-            <section className="flex shrink-0 items-center gap-4 bg-dashboard-hero px-7 py-4 text-white">
+            <section className="flex shrink-0 items-center gap-3 bg-dashboard-hero px-3 py-3 text-white sm:gap-4 sm:px-7 sm:py-4">
               <div className="min-w-0 flex-1">
                 <div className="mb-1.25 flex flex-wrap items-center gap-2.5">
                   <RaceStatePill state={current.state} />
@@ -129,14 +129,26 @@ export default function DashboardPage() {
               </div>
             </section>
 
-            <TabsList>
-              <TabsTrigger value="overview">Přehled</TabsTrigger>
-              <TabsTrigger value="patrols">Hlídky</TabsTrigger>
-              <TabsTrigger value="stations">Stanoviště</TabsTrigger>
-              <TabsTrigger value="settings">Nastavení</TabsTrigger>
+            <TabsList className="justify-between overflow-hidden px-3 sm:justify-start sm:px-7">
+              <TabsTrigger value="overview" className="mb-0 min-w-0 flex-1 gap-2 border-b-2.5 px-2 sm:flex-none sm:px-4.5">
+                <LayoutDashboard className="h-4 w-4 shrink-0 sm:hidden" aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Přehled</span>
+              </TabsTrigger>
+              <TabsTrigger value="patrols" className="mb-0 min-w-0 flex-1 gap-2 border-b-2.5 px-2 sm:flex-none sm:px-4.5">
+                <ClipboardList className="h-4 w-4 shrink-0 sm:hidden" aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Hlídky</span>
+              </TabsTrigger>
+              <TabsTrigger value="stations" className="mb-0 min-w-0 flex-1 gap-2 border-b-2.5 px-2 sm:flex-none sm:px-4.5">
+                <MapPinned className="h-4 w-4 shrink-0 sm:hidden" aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Stanoviště</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="mb-0 min-w-0 flex-1 gap-2 border-b-2.5 px-2 sm:flex-none sm:px-4.5">
+                <Settings className="h-4 w-4 shrink-0 sm:hidden" aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Nastavení</span>
+              </TabsTrigger>
             </TabsList>
 
-            <main className="min-h-0 flex-1 overflow-hidden p-4.5 px-7">
+            <main className="min-h-0 flex-1 overflow-hidden px-3 py-3 sm:p-4.5 sm:px-7">
               <TabsContent value="overview" className="h-full">
                 <OverviewTab raceId={current.id} />
               </TabsContent>
@@ -152,7 +164,7 @@ export default function DashboardPage() {
             </main>
           </>
         ) : (
-          <main className="grid flex-1 place-items-center p-7">
+          <main className="grid flex-1 place-items-center p-3 sm:p-7">
             <EmptyState
               title="Žádný závod"
               description="Začni založením prvního závodu"

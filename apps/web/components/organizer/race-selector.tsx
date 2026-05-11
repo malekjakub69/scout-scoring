@@ -76,7 +76,7 @@ export function RaceSelector({
                 <SelectItem key={r.id} value={r.id}>
                   <span className="flex items-center gap-2">
                     {r.name}
-                    <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>
+                    <Badge variant={s.variant} className="text-[10px] px-1 py-0.30">{s.label}</Badge>
                   </span>
                 </SelectItem>
               );

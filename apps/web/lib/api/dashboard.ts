@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { DashboardPayload, LeaderboardGroup, LeaderboardRow } from "./types";
+import type { DashboardPayload, LeaderboardGroup, LeaderboardRow, ResultsPayload } from "./types";
 
 interface ListResponse<T> { data: T[] }
 
@@ -27,4 +27,10 @@ export async function getLeaderboardGroups(raceId: string): Promise<LeaderboardG
     scope: "organizer",
   });
   return res.data ?? [];
+}
+
+export async function getResults(raceId: string): Promise<ResultsPayload> {
+  return apiFetch<ResultsPayload>(`/api/races/${raceId}/results`, {
+    scope: "organizer",
+  });
 }

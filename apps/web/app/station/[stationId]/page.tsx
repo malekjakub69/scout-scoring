@@ -140,7 +140,7 @@ export default function StationPage() {
   const existingForSelected = selected ? entries.find((e) => e.patrol === selected.id) ?? null : null;
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-scout-bg-app text-scout-text">
+    <div className="flex flex-col overflow-hidden bg-scout-bg-app text-scout-text">
       <header className="shrink-0 bg-scout-blue text-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
