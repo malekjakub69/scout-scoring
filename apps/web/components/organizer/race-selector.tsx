@@ -35,11 +35,13 @@ export function RaceSelector({
   current,
   onPick,
   onCreated,
+  variant = "header",
 }: {
   races: Race[];
   current: Race | null;
   onPick: (id: string) => void;
   onCreated: (race: Race) => void;
+  variant?: "header" | "menu";
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -62,11 +64,18 @@ export function RaceSelector({
     }
   }
 
+  const selectTriggerClass = variant === "header"
+    ? "h-8 w-[300px] rounded-8 border border-white/20 bg-white/10 px-3 text-13 font-medium text-white shadow-none data-[placeholder]:text-white/60"
+    : "h-9 w-full rounded-8 border border-scout-border bg-white px-3 text-13 font-medium text-scout-text shadow-none";
+  const buttonClass = variant === "header"
+    ? "border-white/20 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white"
+    : "w-full justify-center";
+
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex gap-2 ${variant === "menu" ? "w-full flex-col" : "items-center"}`}>
       {races.length > 0 ? (
         <Select value={current?.id ?? undefined} onValueChange={onPick}>
-          <SelectTrigger className="h-8 w-[300px] rounded-8 border border-white/20 bg-white/10 px-3 text-13 font-medium text-white shadow-none data-[placeholder]:text-white/60">
+          <SelectTrigger className={selectTriggerClass}>
             <SelectValue placeholder="Vyber závod…" />
           </SelectTrigger>
           <SelectContent>
@@ -87,7 +96,7 @@ export function RaceSelector({
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button size="sm" variant="outline" className="border-white/20 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white">
+          <Button size="sm" variant="outline" className={buttonClass}>
             <Plus className="h-4 w-4" />
             Nový závod
           </Button>

@@ -119,8 +119,10 @@ konkrétní průchod hlídky stanovištěm: stanoviště, hlídku, body a čas p
 aktualizace. Frontend polluje dashboard přibližně každých 10 s.
 
 Dashboard má čtyři hlavní taby: Přehled, Hlídky, Stanoviště a Nastavení. Na
-mobilu se tab navigace přepne na ikonové záložky bez horizontálního nebo
-vertikálního scrollu; aktivní záložka je zvýrazněná spodním žlutým borderem.
+mobilu a tabletu se výběr závodu, nastavení, uživatelé a odhlášení přesouvají
+do hamburger menu. Tab navigace se na mobilu přepne na ikonové záložky bez
+horizontálního nebo vertikálního scrollu; aktivní záložka je zvýrazněná spodním
+žlutým borderem.
 
 Po uzavření závodu je v přehledu dostupné tlačítko **Zobrazit výsledky**.
 Výsledková stránka používá `GET /api/races/:race_id/leaderboard` a zobrazuje

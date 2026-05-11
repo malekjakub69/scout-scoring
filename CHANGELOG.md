@@ -21,6 +21,7 @@ projekt používá [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 ### Changed
 
 - Mobilní rozestupy na dashboardu, výsledcích a detailu hlídky jsou kompaktnější.
+- Mobilní a tabletová dashboard hlavička přesouvá výběr závodu, nastavení, uživatele a logout do hamburger menu.
 - Root README popisuje aktuální frontend trasy, dashboard activity payload a výsledkové workflow.
 
 ## [0.1.0] - 2026-05-11
